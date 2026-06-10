@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchConcerts } from "../lib/concerts.js";
+import { flagEmoji } from "../lib/geo.js";
 import { fmtDate } from "../lib/itinerary.js";
 import * as sound from "../lib/sound.js";
 
@@ -8,22 +9,24 @@ function EventRow({ ev }) {
   const title = matched ? ev.matches.join(" + ") : ev.name;
   return (
     <li className={"event" + (matched ? " matched" : "")}>
-      <div className="ev-line1">
-        <span className="ev-date">{fmtDate(ev.date)}</span>
-        <span className="ev-name">{title.toUpperCase()}</span>
+      <span className="ev-date">{fmtDate(ev.date)}</span>
+      <div className="ev-main">
+        <div className="ev-name">{title}</div>
+        <div className="ev-venue">
+          {[ev.venue, ev.time].filter(Boolean).join(" · ") || "Venue TBA"}
+        </div>
+        {matched && ev.name !== title && <div className="ev-sub">{ev.name}</div>}
       </div>
-      <div className="ev-line2">
-        <span className="ev-venue">
-          {[ev.venue, ev.time].filter(Boolean).join(" · ") || "VENUE TBA"}
-        </span>
-        {ev.url && (
-          <a href={ev.url} target="_blank" rel="noreferrer" onClick={() => sound.tick()}>
-            TICKETS ↗
-          </a>
-        )}
-      </div>
-      {matched && ev.name.toUpperCase() !== title.toUpperCase() && (
-        <div className="ev-sub">{ev.name.toUpperCase()}</div>
+      {ev.url && (
+        <a
+          className="ev-link"
+          href={ev.url}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => sound.tick()}
+        >
+          Tickets
+        </a>
       )}
     </li>
   );
@@ -51,46 +54,44 @@ export default function CityPanel({ stop, index, artists, usingDemoTaste, onClos
       <header className="city-head">
         <div>
           <h2>
-            <span className="dim">{String(index + 1).padStart(2, "0")} /</span>{" "}
-            {stop.city.toUpperCase()}
+            {stop.city} {flagEmoji(stop.country)}
           </h2>
           <p className="city-dates">
-            {fmtDate(stop.arrive)} — {fmtDate(stop.depart)}
-            {stop.country && <span className="cc">{stop.country}</span>}
+            Stop {index + 1} · {fmtDate(stop.arrive)} – {fmtDate(stop.depart)}
           </p>
         </div>
-        <button className="stop-x" onClick={() => { sound.zap(); onClose(); }}>
+        <button className="close-x" title="Close" onClick={() => { sound.zap(); onClose(); }}>
           ×
         </button>
       </header>
 
-      {state.phase === "loading" && <p className="status blink">SCANNING FREQUENCIES…</p>}
-      {state.phase === "error" && <p className="status err">FEED ERROR — {state.error}</p>}
+      {state.phase === "loading" && <p className="status">Finding shows for you…</p>}
+      {state.phase === "error" && (
+        <p className="status err">Hmm, the concert feed hiccuped — {state.error}</p>
+      )}
 
       {state.phase === "done" && (
         <div className="city-body">
-          <h3 className="sec acc2">
-            ● YOUR ARTISTS <span className="dim">({matched.length})</span>
-          </h3>
+          <h3 className="sec">🎉 Your artists are playing</h3>
           {matched.length ? (
             <ul className="events">{matched.map((ev) => <EventRow key={ev.id} ev={ev} />)}</ul>
           ) : (
-            <p className="status">NO MATCHES IN THIS WINDOW</p>
+            <p className="status">None of your artists this time — peek below!</p>
           )}
 
           {rest.length > 0 && (
             <>
-              <h3 className="sec">○ ALSO ON</h3>
+              <h3 className="sec">🎵 Also in town</h3>
               <ul className="events">{rest.map((ev) => <EventRow key={ev.id} ev={ev} />)}</ul>
             </>
           )}
 
           <footer className="feed-note">
-            {usingDemoTaste && <p>TASTE: DEMO SET — CONNECT SPOTIFY TO USE YOURS</p>}
+            {usingDemoTaste && <p>Using a sample taste profile — connect Spotify to make it yours.</p>}
             {state.source === "demo" ? (
-              <p>FEED: SIMULATED — ADD A TICKETMASTER KEY [API] FOR REAL LISTINGS</p>
+              <p>These are demo shows — add a free Ticketmaster key (🔑 API keys) for real listings.</p>
             ) : (
-              <p>FEED: TICKETMASTER LIVE</p>
+              <p>Live listings via Ticketmaster.</p>
             )}
           </footer>
         </div>

@@ -120,6 +120,13 @@ export function geohash(lat, lng, precision = 9) {
   return hash;
 }
 
+export function flagEmoji(cc) {
+  if (!cc || cc.length !== 2) return "";
+  return String.fromCodePoint(
+    ...[...cc.toUpperCase()].map((c) => 127397 + c.charCodeAt(0))
+  );
+}
+
 export function distanceKm(a, b) {
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad;

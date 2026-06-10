@@ -102,7 +102,6 @@ export default function App() {
         onSelect={setSelectedId}
         onBackgroundClick={() => setSelectedId(null)}
       />
-      <div className="scanlines" />
 
       <TopBar
         spotify={sp}
@@ -132,11 +131,11 @@ export default function App() {
         />
       )}
 
-      <p className="hint">DRAG TO SPIN — SCROLL TO ZOOM — CLICK A STOP FOR SHOWS</p>
+      <p className="hint">Drag to spin · scroll to zoom · click a stop for shows</p>
       <p className="stats">
-        {String(stops.length).padStart(2, "0")} STOPS ·{" "}
-        {String(Math.max(stops.length - 1, 0)).padStart(2, "0")} FLIGHTS ·{" "}
-        {km.toLocaleString("en-US")} KM
+        {stops.length} {stops.length === 1 ? "stop" : "stops"} ·{" "}
+        {Math.max(stops.length - 1, 0)} {stops.length === 2 ? "flight" : "flights"} ·{" "}
+        {km.toLocaleString("en-US")} km ✨
       </p>
 
       {keysOpen && <KeysModal onClose={closeKeys} needSpotify={needSpotify} />}

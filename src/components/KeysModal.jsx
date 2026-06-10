@@ -30,13 +30,13 @@ export default function KeysModal({ onClose, needSpotify }) {
   return (
     <div className="modal-backdrop" onClick={() => onClose(null)}>
       <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-        <h2 className="panel-title">API KEYS</h2>
+        <h2 className="panel-title">🔑 API keys</h2>
         {needSpotify && (
-          <p className="status acc2">A SPOTIFY CLIENT ID IS NEEDED TO CONNECT</p>
+          <p className="status need">You'll need a Spotify client ID to connect — it takes about a minute.</p>
         )}
 
         <label className="field">
-          SPOTIFY CLIENT ID
+          Spotify client ID
           <input
             type="text"
             value={clientId}
@@ -46,34 +46,34 @@ export default function KeysModal({ onClose, needSpotify }) {
           />
         </label>
         <p className="hint-text">
-          CREATE AN APP AT DEVELOPER.SPOTIFY.COM/DASHBOARD AND REGISTER THIS
-          EXACT REDIRECT URI:
+          Create an app at developer.spotify.com/dashboard and register this
+          exact redirect URI:
         </p>
-        <button type="button" className="uri" onClick={copy} title="copy">
-          {uri} {copied ? "✓ COPIED" : "⧉"}
+        <button type="button" className="uri" onClick={copy} title="Copy">
+          {uri} {copied ? "✓ copied!" : "⧉"}
         </button>
 
         <label className="field">
-          TICKETMASTER API KEY <span className="dim">(OPTIONAL)</span>
+          Ticketmaster API key <span className="dim">(optional)</span>
           <input
             type="text"
             value={tmKey}
             onChange={(e) => setTmKeyInput(e.target.value)}
-            placeholder="blank = simulated concert feed"
+            placeholder="blank = demo concert feed"
             spellCheck="false"
           />
         </label>
         <p className="hint-text">
-          FREE AT DEVELOPER.TICKETMASTER.COM — UNLOCKS REAL LISTINGS. KEYS LIVE
-          IN YOUR BROWSER'S LOCALSTORAGE ONLY.
+          Free at developer.ticketmaster.com — unlocks real listings. Keys
+          never leave your browser.
         </p>
 
         <div className="modal-actions">
           <button className="btn ghost" onClick={() => onClose(null)}>
-            CANCEL
+            Cancel
           </button>
           <button className="btn" onClick={save}>
-            SAVE
+            Save
           </button>
         </div>
       </div>

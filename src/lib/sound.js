@@ -38,13 +38,14 @@ function tone(freq, dur, type = "sine", gain = 0.04, delay = 0) {
   }
 }
 
-export const tick = () => tone(2600, 0.03, "square", 0.012);
+// soft marimba-ish pops rather than anything harsh
+export const tick = () => tone(1320, 0.05, "sine", 0.015);
 export const blip = () => {
-  tone(660, 0.07, "sine", 0.05);
-  tone(990, 0.09, "sine", 0.03, 0.045);
+  tone(523.25, 0.09, "sine", 0.05);
+  tone(783.99, 0.12, "sine", 0.035, 0.06);
 };
-export const zap = () => tone(160, 0.14, "sawtooth", 0.035);
+export const zap = () => tone(392, 0.1, "sine", 0.04);
 export const chime = () =>
   [523.25, 659.25, 783.99, 1046.5].forEach((f, i) =>
-    tone(f, 0.14, "triangle", 0.04, i * 0.07)
+    tone(f, 0.16, "sine", 0.045, i * 0.08)
   );

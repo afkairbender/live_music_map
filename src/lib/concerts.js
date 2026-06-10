@@ -118,15 +118,15 @@ async function fetchTicketmaster(stop, apikey) {
 // ---- simulated feed ----
 
 const FILLER_ACTS = [
-  "VOID CIRCUIT", "NIGHT BUREAU", "STATIC BLOOM", "GHOST LATTICE",
-  "MODULAR GRIEF", "PHASE IV", "KERNEL PANIC", "TAPE LOOP ORPHANS",
-  "ACID ARCHIVE", "SIGNAL DECAY", "POLY RHYTHM UNIT", "DIAL TONE CHOIR",
+  "The Paper Planes", "Sunday Confetti", "Marmalade Skies", "Bicycle Choir",
+  "Velvet Otters", "The Tangerine Tones", "Cloud Picnic", "Pocket Symphony",
+  "The Polka Dot Brass", "Juniper June", "Lighthouse Lullaby", "Big Tiny Band",
 ];
 
 const VENUES = [
-  "BUNKER 03", "TURBINE HALL", "DRIFT WAREHOUSE", "CLUB MERIDIAN",
-  "SUBSTATION K", "NEON DEPOT", "HANGAR NORD", "THE OSCILLOSCOPE",
-  "SALA APEX", "PALAIS NUIT",
+  "The Greenhouse", "Lantern Hall", "Garden Stage", "The Velvet Room",
+  "Harbor House", "Moonlight Pavilion", "The Attic", "Old Tram Depot",
+  "Rooftop Meadow", "The Birdcage",
 ];
 
 const TIMES = ["20:00", "21:00", "22:00", "23:00", "23:59", "01:00"];

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { searchCities } from "../lib/geo.js";
+import { searchCities, flagEmoji } from "../lib/geo.js";
 import { addDays, fmtDate, todayIso } from "../lib/itinerary.js";
 import * as sound from "../lib/sound.js";
 
@@ -54,34 +54,36 @@ export default function ItineraryPanel({ stops, selectedId, onSelect, onRemove, 
 
   return (
     <aside className="panel itinerary">
-      <h2 className="panel-title">ITINERARY</h2>
+      <h2 className="panel-title">Your trip ✈️</h2>
       <ol className="stops">
         {stops.map((s, i) => (
           <li key={s.id} className={s.id === selectedId ? "sel" : ""}>
             <button className="stop-row" onClick={() => { sound.blip(); onSelect(s.id); }}>
-              <span className="stop-num">{String(i + 1).padStart(2, "0")}</span>
-              <span className="stop-city">{s.city.toUpperCase()}</span>
+              <span className="stop-num">{i + 1}</span>
+              <span className="stop-city">
+                {s.city} {flagEmoji(s.country)}
+              </span>
               <span className="stop-dates">
-                {fmtDate(s.arrive)} — {fmtDate(s.depart)}
+                {fmtDate(s.arrive)} – {fmtDate(s.depart)}
               </span>
             </button>
             <button
               className="stop-x"
-              title="remove stop"
+              title="Remove stop"
               onClick={() => { sound.zap(); onRemove(s.id); }}
             >
               ×
             </button>
           </li>
         ))}
-        {!stops.length && <li className="empty">NO STOPS — ADD A CITY BELOW</li>}
+        {!stops.length && <li className="empty">No stops yet — add your first city below!</li>}
       </ol>
 
       <form className="add-form" onSubmit={submit}>
         <div className="search-wrap">
           <input
             type="text"
-            placeholder="+ ADD CITY"
+            placeholder="Where to next?"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             spellCheck="false"
@@ -91,8 +93,10 @@ export default function ItineraryPanel({ stops, selectedId, onSelect, onRemove, 
               {results.map((c) => (
                 <li key={c.city + c.country}>
                   <button type="button" onClick={() => pickCity(c)}>
-                    {c.city.toUpperCase()}
-                    <span className="cc">{c.country}</span>
+                    {c.city}
+                    <span className="cc">
+                      {flagEmoji(c.country)} {c.country}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -102,15 +106,15 @@ export default function ItineraryPanel({ stops, selectedId, onSelect, onRemove, 
         {chosen && (
           <div className="date-row">
             <label>
-              IN
+              Arrive
               <input type="date" value={arrive} max={depart || undefined} onChange={(e) => setArrive(e.target.value)} />
             </label>
             <label>
-              OUT
+              Leave
               <input type="date" value={depart} min={arrive || undefined} onChange={(e) => setDepart(e.target.value)} />
             </label>
             <button type="submit" className="btn add-btn" disabled={!valid}>
-              ADD
+              Add
             </button>
           </div>
         )}

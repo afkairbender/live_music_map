@@ -1,19 +1,22 @@
-# LIVE//MUSIC//MAP
+# Live Music Map 🎶
 
-A dark, techno-minimalist 3D globe for your next trip. Drop your stops on the
-map, link Spotify, and see which of your artists are playing each city while
-you're there — with neon flight arcs connecting the route.
+A light, whimsical 3D globe for your next trip — think Airbnb, but for
+concerts. Drop your stops on the map, link Spotify, and see which of your
+artists are playing each city while you're there, with stitched coral flight
+arcs connecting the route.
 
-- **3D interactive globe** — hex-dot continents, auto-spin, click a stop to fly to it
-- **Itinerary** — add cities with in/out dates, flight lines connect them in order
-- **Spotify** — one click, no account system; uses the PKCE flow entirely in your
-  browser to read your top artists (`user-top-read` only)
+- **3D interactive globe** — candy-pastel storybook continents, auto-spin,
+  click a stop to fly to it
+- **Itinerary** — add cities with arrive/leave dates, flight lines connect
+  them in order
+- **Spotify** — one click, no account system; uses the PKCE flow entirely in
+  your browser to read your top artists (`user-top-read` only)
 - **Concerts per stop** — click Barcelona and see what's on during your dates,
   your artists first
-- **Zero-setup demo mode** — without API keys you get a simulated concert feed
-  and a demo taste profile, so everything works out of the box
-- **Fun bits** — synth blips on interaction (toggle with `SND`), pulsing rings,
-  scanlines, km counter
+- **Zero-setup demo mode** — without API keys you get a demo concert feed and
+  a sample taste profile, so everything works out of the box
+- **Fun bits** — soft marimba pops on interaction (toggle with 🔊), pulsing
+  rings, country flags, km counter
 
 Everything is client-side. No backend, no database, no login. Keys and your
 itinerary live in `localStorage`.
@@ -32,17 +35,17 @@ allows loopback-IP redirect URIs for new apps).
 
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
    and create an app (takes ~1 minute, any name).
-2. Add the redirect URI shown in the app's `[API]` modal — e.g.
+2. Add the redirect URI shown in the app's **🔑 API keys** modal — e.g.
    `http://127.0.0.1:5173/` for local dev, or your deployed URL. It must match
    exactly.
-3. Copy the **Client ID** into the `[API]` modal (or set
-   `VITE_SPOTIFY_CLIENT_ID` in a `.env` file) and hit **CONNECT SPOTIFY**.
+3. Copy the **Client ID** into the **🔑 API keys** modal (or set
+   `VITE_SPOTIFY_CLIENT_ID` in a `.env` file) and hit **Connect Spotify**.
 
 ## Real concert data (optional)
 
 Grab a free [Ticketmaster Discovery API](https://developer.ticketmaster.com/)
-key and paste it into the `[API]` modal (or set `VITE_TM_API_KEY`). Without it
-you get a clearly-labelled simulated feed seeded from your artists.
+key and paste it into the **🔑 API keys** modal (or set `VITE_TM_API_KEY`).
+Without it you get a clearly-labelled demo feed seeded from your artists.
 
 > Coverage note: Ticketmaster is strongest in North America, UK/Europe,
 > Australia. Club shows in some cities won't appear.
@@ -60,9 +63,9 @@ redirect URI in the Spotify dashboard.
 | Drag / scroll | Spin / zoom the globe |
 | Click a stop (globe or list) | Fly there + show concerts during your stay |
 | `ESC` or click empty space | Close the city panel |
-| `+ ADD CITY` | Search any city (local list + Open-Meteo geocoder) |
-| `SND:ON/OFF` | Toggle the synth blips |
-| `[API]` | Set Spotify client ID / Ticketmaster key |
+| "Where to next?" | Search any city (local list + Open-Meteo geocoder) |
+| 🔊 | Toggle the sound effects |
+| 🔑 API keys | Set Spotify client ID / Ticketmaster key |
 
 ## Stack
 

@@ -15,9 +15,11 @@ export function todayIso() {
 
 export function fmtDate(iso) {
   const d = new Date(iso + "T12:00:00Z");
-  return d
-    .toLocaleDateString("en-US", { month: "short", day: "2-digit", timeZone: "UTC" })
-    .toUpperCase();
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 let nextId = Date.now();

@@ -4,33 +4,31 @@ export default function TopBar({ spotify, onConnect, onDisconnect, onKeys, muted
   return (
     <header className="topbar">
       <h1 className="logo">
-        LIVE<span className="acc">//</span>MUSIC<span className="acc">//</span>MAP
-        <span className="cursor">▮</span>
+        <span className="logo-mark">🎶</span> Live Music Map
       </h1>
       <nav className="controls">
-        <button className="btn ghost" onClick={onToggleMute}>
-          SND:{muted ? "OFF" : "ON"}
+        <button className="btn round" title={muted ? "Unmute" : "Mute"} onClick={onToggleMute}>
+          {muted ? "🔇" : "🔊"}
         </button>
         <button className="btn ghost" onClick={() => { sound.tick(); onKeys(); }}>
-          [API]
+          🔑 API keys
         </button>
         {spotify.phase === "connected" ? (
           <button
             className="btn spotify on"
-            title="disconnect"
+            title="Click to disconnect"
             onClick={() => { sound.zap(); onDisconnect(); }}
           >
             <span className="pulse-dot" />
-            {(spotify.profile?.display_name || "LINKED").toUpperCase()} ·{" "}
-            {spotify.artists.length} ARTISTS
+            {spotify.profile?.display_name || "Connected"} · {spotify.artists.length} artists
           </button>
         ) : spotify.phase === "loading" ? (
           <button className="btn spotify" disabled>
-            <span className="blink">SYNCING…</span>
+            Connecting…
           </button>
         ) : (
           <button className="btn spotify" onClick={() => { sound.blip(); onConnect(); }}>
-            CONNECT SPOTIFY ▸
+            Connect Spotify
           </button>
         )}
       </nav>

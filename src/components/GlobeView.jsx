@@ -21,14 +21,22 @@ const LAND = feature(countriesTopo, countriesTopo.objects.countries)
     };
   })
   .filter((f) => f.geometry.coordinates.length > 0);
+
+// soft ocean blue with enough self-glow that the night side stays friendly
 const GLOBE_MATERIAL = new MeshPhongMaterial({
-  color: "#060b0a",
-  emissive: "#02160f",
-  emissiveIntensity: 0.18,
-  shininess: 4,
+  color: "#cde9fa",
+  emissive: "#a4d4f0",
+  emissiveIntensity: 0.55,
+  shininess: 6,
 });
-const ACC = "0,255,159";
-const ACC2 = "255,45,150";
+
+// every country gets its own candy pastel, like a storybook atlas
+const PASTELS = ["#5ec98f", "#f8c660", "#f88f79", "#a98ee6", "#54b8e8", "#f47fb0"];
+const hashStr = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+const countryColor = (f) => PASTELS[hashStr(f.properties?.name || "?") % PASTELS.length];
+
+const CORAL = "255,56,92";
+const TEAL = "0,166,153";
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -72,12 +80,12 @@ export default function GlobeView({ stops, selectedId, onSelect, onBackgroundCli
     if (!g) return;
     const c = g.controls();
     c.autoRotate = true;
-    c.autoRotateSpeed = 0.55;
+    c.autoRotateSpeed = 0.5;
     c.enableDamping = true;
     c.dampingFactor = 0.08;
     c.minDistance = 135;
     c.maxDistance = 480;
-    g.pointOfView({ lat: 30, lng: -5, altitude: 2.1 }, 0);
+    g.pointOfView({ lat: 30, lng: -5, altitude: 2.05 }, 0);
   }, []);
 
   const makeMarker = useCallback(
@@ -85,10 +93,10 @@ export default function GlobeView({ stops, selectedId, onSelect, onBackgroundCli
       const el = document.createElement("div");
       el.className = "marker" + (d.sel ? " sel" : "");
       el.innerHTML =
-        '<div class="m-dot"></div><div class="m-label">' +
-        String(d.idx + 1).padStart(2, "0") +
-        " " +
-        esc(d.city.toUpperCase()) +
+        '<div class="m-dot"></div><div class="m-pill"><span class="m-num">' +
+        (d.idx + 1) +
+        "</span>" +
+        esc(d.city) +
         "</div>";
       el.style.pointerEvents = "auto";
       el.onclick = (e) => {
@@ -110,30 +118,30 @@ export default function GlobeView({ stops, selectedId, onSelect, onBackgroundCli
       backgroundColor="rgba(0,0,0,0)"
       globeMaterial={GLOBE_MATERIAL}
       showAtmosphere
-      atmosphereColor="#00ff9f"
-      atmosphereAltitude={0.13}
+      atmosphereColor="#9fd2f5"
+      atmosphereAltitude={0.16}
       hexPolygonsData={LAND}
       hexPolygonResolution={3}
-      hexPolygonMargin={0.72}
+      hexPolygonMargin={0.62}
       hexPolygonAltitude={0.006}
-      hexPolygonColor={() => "#2a8a67"}
+      hexPolygonColor={countryColor}
       arcsData={arcs}
-      arcColor={() => [`rgba(${ACC},0)`, `rgba(${ACC},0.9)`, `rgba(${ACC2},0.6)`]}
+      arcColor={() => [`rgba(${CORAL},0)`, `rgba(${CORAL},0.9)`, `rgba(255,153,51,0.85)`]}
       arcAltitudeAutoScale={0.42}
-      arcStroke={0.45}
-      arcDashLength={0.45}
-      arcDashGap={0.25}
-      arcDashAnimateTime={2400}
+      arcStroke={0.55}
+      arcDashLength={0.14}
+      arcDashGap={0.07}
+      arcDashAnimateTime={4200}
       arcsTransitionDuration={500}
       ringsData={points}
-      ringColor={(d) => (t) => `rgba(${d.sel ? ACC2 : ACC},${(d.sel ? 0.5 : 0.25) * (1 - t)})`}
+      ringColor={(d) => (t) => `rgba(${d.sel ? CORAL : TEAL},${(d.sel ? 0.55 : 0.3) * (1 - t)})`}
       ringMaxRadius={(d) => (d.sel ? 4.5 : 2.3)}
       ringPropagationSpeed={(d) => (d.sel ? 2.2 : 1)}
       ringRepeatPeriod={(d) => (d.sel ? 900 : 2600)}
-      ringAltitude={0.006}
+      ringAltitude={0.007}
       htmlElementsData={points}
       htmlElement={makeMarker}
-      htmlAltitude={0.012}
+      htmlAltitude={0.014}
       onGlobeReady={onReady}
       onGlobeClick={onBackgroundClick}
     />
