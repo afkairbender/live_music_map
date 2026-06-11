@@ -1,0 +1,36 @@
+# TEMPORARY — verifies the RA eventListings query used by src/lib/concerts.js
+# still works once `genres { name }` is added to the event fields. Removed
+# after the probe run.
+name: probe-ra-genres
+
+on:
+  push:
+    branches: ["claude/funny-dijkstra-akxiam"]
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: RA eventListings with genres (exact app query)
+        run: |
+          set +e
+          UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+          Q='query($filters: FilterInputDtoInput, $page: Int, $pageSize: Int) { eventListings(filters: $filters, pageSize: $pageSize, page: $page) { data { id listingDate event { id title date startTime contentUrl venue { name } artists { name } genres { name } } } totalResults } }'
+          GTE="$(date -u +%F)T00:00:00.000Z"
+          LTE="$(date -u -d '+7 days' +%F)T23:59:59.999Z"
+          BODY=$(jq -n --arg q "$Q" --arg gte "$GTE" --arg lte "$LTE" \
+            '{query:$q, variables:{filters:{areas:{eq:34}, listingDate:{gte:$gte, lte:$lte}}, pageSize:5, page:1}}')
+          RESP=$(curl -sS -m 25 -X POST https://ra.co/graphql \
+            -H 'Content-Type: application/json' \
+            -H "User-Agent: $UA" \
+            -H 'Referer: https://ra.co/events' \
+            --data "$BODY" \
+            -w '\nHTTP_CODE %{http_code}')
+          echo "$RESP" | head -c 4000
+          echo
+          if echo "$RESP" | grep -q '"errors"'; then
+            echo "RESULT: GENRES_QUERY_ERRORED"
+            exit 1
+          fi
+          GENRE_COUNT=$(echo "$RESP" | sed 's/HTTP_CODE.*//' | jq '[.data.eventListings.data[].event.genres[]?.name] | length' 2>/dev/null)
+          echo "RESULT: GENRES_OK genre_names_returned=${GENRE_COUNT:-unparseable}"
