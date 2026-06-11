@@ -59,13 +59,14 @@ export default function KeysModal({ onClose, needSpotify }) {
             type="text"
             value={tmKey}
             onChange={(e) => setTmKeyInput(e.target.value)}
-            placeholder="blank = demo concert feed"
+            placeholder="optional — adds arena & stadium shows"
             spellCheck="false"
           />
         </label>
         <p className="hint-text">
-          Free at developer.ticketmaster.com — unlocks real listings. Keys
-          never leave your browser.
+          Free at developer.ticketmaster.com — extra coverage on top of
+          Resident Advisor + Bandsintown, which need no key. Keys never leave
+          your browser.
         </p>
 
         <div className="modal-actions">

@@ -5,7 +5,7 @@ import CityPanel from "./components/CityPanel.jsx";
 import TopBar from "./components/TopBar.jsx";
 import KeysModal from "./components/KeysModal.jsx";
 import * as spotify from "./lib/spotify.js";
-import { DEMO_ARTISTS } from "./lib/concerts.js";
+import { SAMPLE_ARTISTS } from "./lib/concerts.js";
 import { distanceKm } from "./lib/geo.js";
 import { loadItinerary, saveItinerary, newId } from "./lib/itinerary.js";
 import * as sound from "./lib/sound.js";
@@ -92,7 +92,7 @@ export default function App() {
     [stops]
   );
 
-  const artists = sp.phase === "connected" ? sp.artists : DEMO_ARTISTS;
+  const artists = sp.phase === "connected" ? sp.artists : SAMPLE_ARTISTS;
 
   return (
     <div className="app">
@@ -126,7 +126,7 @@ export default function App() {
           stop={selected}
           index={selectedIdx}
           artists={artists}
-          usingDemoTaste={sp.phase !== "connected"}
+          usingSampleTaste={sp.phase !== "connected"}
           onClose={() => setSelectedId(null)}
         />
       )}

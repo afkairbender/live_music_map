@@ -4,9 +4,16 @@ import { flagEmoji } from "../lib/geo.js";
 import { fmtDate } from "../lib/itinerary.js";
 import * as sound from "../lib/sound.js";
 
+const SRC_BADGE = {
+  ra: ["RA", "Resident Advisor"],
+  bit: ["BIT", "Bandsintown"],
+  tm: ["TM", "Ticketmaster"],
+};
+
 function EventRow({ ev }) {
   const matched = ev.matches.length > 0;
   const title = matched ? ev.matches.join(" + ") : ev.name;
+  const badge = SRC_BADGE[ev.source];
   return (
     <li className={"event" + (matched ? " matched" : "")}>
       <span className="ev-date">{fmtDate(ev.date)}</span>
@@ -14,6 +21,11 @@ function EventRow({ ev }) {
         <div className="ev-name">{title}</div>
         <div className="ev-venue">
           {[ev.venue, ev.time].filter(Boolean).join(" · ") || "Venue TBA"}
+          {badge && (
+            <span className="ev-src" title={badge[1]}>
+              {badge[0]}
+            </span>
+          )}
         </div>
         {matched && ev.name !== title && <div className="ev-sub">{ev.name}</div>}
       </div>
@@ -32,7 +44,7 @@ function EventRow({ ev }) {
   );
 }
 
-export default function CityPanel({ stop, index, artists, usingDemoTaste, onClose }) {
+export default function CityPanel({ stop, index, artists, usingSampleTaste, onClose }) {
   const [state, setState] = useState({ phase: "loading" });
 
   useEffect(() => {
@@ -48,6 +60,10 @@ export default function CityPanel({ stop, index, artists, usingDemoTaste, onClos
 
   const matched = state.events?.filter((e) => e.matches.length) || [];
   const rest = state.events?.filter((e) => !e.matches.length) || [];
+  const ok = state.sources?.filter((s) => s.status === "ok") || [];
+  const failed = state.sources?.filter((s) => s.status === "error") || [];
+  const raSkipped = state.sources?.find((s) => s.id === "ra" && s.status === "skipped");
+  const tmSkipped = state.sources?.some((s) => s.id === "tm" && s.status === "skipped");
 
   return (
     <aside className="panel city">
@@ -67,31 +83,45 @@ export default function CityPanel({ stop, index, artists, usingDemoTaste, onClos
 
       {state.phase === "loading" && <p className="status">Finding shows for you…</p>}
       {state.phase === "error" && (
-        <p className="status err">Hmm, the concert feed hiccuped — {state.error}</p>
+        <p className="status err">Hmm, the concert feeds hiccuped — {state.error}</p>
       )}
 
       {state.phase === "done" && (
         <div className="city-body">
-          <h3 className="sec">🎉 Your artists are playing</h3>
-          {matched.length ? (
-            <ul className="events">{matched.map((ev) => <EventRow key={ev.id} ev={ev} />)}</ul>
+          {state.events.length === 0 ? (
+            <p className="status">
+              Nothing listed for these dates yet — venues often announce a few
+              weeks out, so check back closer to the trip.
+            </p>
           ) : (
-            <p className="status">None of your artists this time — peek below!</p>
-          )}
-
-          {rest.length > 0 && (
             <>
-              <h3 className="sec">🎵 Also in town</h3>
-              <ul className="events">{rest.map((ev) => <EventRow key={ev.id} ev={ev} />)}</ul>
+              <h3 className="sec">🎉 Your artists are playing</h3>
+              {matched.length ? (
+                <ul className="events">{matched.map((ev) => <EventRow key={ev.id} ev={ev} />)}</ul>
+              ) : (
+                <p className="status">None of your artists this time — peek below!</p>
+              )}
+
+              {rest.length > 0 && (
+                <>
+                  <h3 className="sec">🎵 Also in town</h3>
+                  <ul className="events">{rest.map((ev) => <EventRow key={ev.id} ev={ev} />)}</ul>
+                </>
+              )}
             </>
           )}
 
           <footer className="feed-note">
-            {usingDemoTaste && <p>Using a sample taste profile — connect Spotify to make it yours.</p>}
-            {state.source === "demo" ? (
-              <p>These are demo shows — add a free Ticketmaster key (🔑 API keys) for real listings.</p>
-            ) : (
-              <p>Live listings via Ticketmaster.</p>
+            {usingSampleTaste && <p>Using a sample taste profile — connect Spotify to make it yours.</p>}
+            {ok.length > 0 && <p>Live listings via {ok.map((s) => s.label).join(" + ")}.</p>}
+            {raSkipped && raSkipped.detail && <p>{raSkipped.detail} — showing other sources.</p>}
+            {failed.map((s) => (
+              <p key={s.id}>
+                {s.label} didn't respond this time{s.detail ? ` (${s.detail})` : ""}.
+              </p>
+            ))}
+            {tmSkipped && (
+              <p>Add a free Ticketmaster key (🔑 API keys) for extra arena &amp; stadium coverage.</p>
             )}
           </footer>
         </div>

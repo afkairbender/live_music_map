@@ -11,10 +11,12 @@ arcs connecting the route.
   them in order
 - **Spotify** — one click, no account system; uses the PKCE flow entirely in
   your browser to read your top artists (`user-top-read` only)
-- **Concerts per stop** — click Barcelona and see what's on during your dates,
-  your artists first
-- **Zero-setup demo mode** — without API keys you get a demo concert feed and
-  a sample taste profile, so everything works out of the box
+- **Concerts per stop** — click Barcelona and see what's actually on during
+  your dates, your artists first
+- **Real listings, zero keys** — every show comes from a live source:
+  Resident Advisor (clubs & electronic) and Bandsintown (tour dates) work
+  with no setup, Ticketmaster adds arena coverage with a free key. There is
+  no fake/demo feed — if nothing's listed, you see nothing.
 - **Fun bits** — soft marimba pops on interaction (toggle with 🔊), pulsing
   rings, country flags, km counter
 
@@ -41,14 +43,30 @@ allows loopback-IP redirect URIs for new apps).
 3. Copy the **Client ID** into the **🔑 API keys** modal (or set
    `VITE_SPOTIFY_CLIENT_ID` in a `.env` file) and hit **Connect Spotify**.
 
-## Real concert data (optional)
+## Concert data — all real, merged from three sources
 
-Grab a free [Ticketmaster Discovery API](https://developer.ticketmaster.com/)
-key and paste it into the **🔑 API keys** modal (or set `VITE_TM_API_KEY`).
-Without it you get a clearly-labelled demo feed seeded from your artists.
+| Source | What it covers | Key needed |
+| --- | --- | --- |
+| [Resident Advisor](https://ra.co) | Club nights, festivals, electronic music worldwide | none |
+| [Bandsintown](https://bandsintown.com) | Tour dates for *your* top artists, every genre | none |
+| [Ticketmaster Discovery](https://developer.ticketmaster.com/) | Arena/stadium & mainstream shows | free key (optional) |
 
-> Coverage note: Ticketmaster is strongest in North America, UK/Europe,
-> Australia. Club shows in some cities won't appear.
+Results are fetched in parallel, deduped (same show on two sources keeps one
+entry), and tagged with a small RA / BIT / TM badge. Each stop queries RA by
+city area and Bandsintown by your top artists, filtered to venues within
+~80 km of the stop during your dates.
+
+Resident Advisor's GraphQL API doesn't send CORS headers, so the app calls
+it through a same-origin `/api/ra` route: the Vite dev server proxies it
+locally (`vite.config.js`) and Netlify rewrites it in production
+(`netlify.toml`). Bandsintown is called directly, with `/api/bit` as a
+fallback route. If you host the static build somewhere other than Netlify,
+add equivalent rewrites (`/api/ra` → `https://ra.co/graphql`, `/api/bit/*` →
+`https://rest.bandsintown.com/*`) — without them RA is skipped and the
+other sources still work.
+
+To add Ticketmaster, paste a free Discovery API key into the **🔑 API keys**
+modal (or set `VITE_TM_API_KEY`).
 
 ## Deploy
 
