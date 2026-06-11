@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as spotify from "../lib/spotify.js";
 import { getTmKey, setTmKey } from "../lib/concerts.js";
 import * as sound from "../lib/sound.js";
@@ -7,7 +7,35 @@ export default function KeysModal({ onClose, needSpotify }) {
   const [clientId, setClientIdInput] = useState(spotify.getClientId());
   const [tmKey, setTmKeyInput] = useState(getTmKey());
   const [copied, setCopied] = useState(false);
+  const boxRef = useRef(null);
   const uri = spotify.redirectUri();
+
+  // dialog manners, done by hand to stay dependency-free: focus the first
+  // field on open, hand focus back to whatever opened us on close
+  useEffect(() => {
+    const opener = document.activeElement;
+    boxRef.current?.querySelector("input")?.focus();
+    return () => opener?.focus?.();
+  }, []);
+
+  // aria-modal tells screen readers the rest of the page is inert, but it
+  // doesn't fence the real focus — cycle Tab/Shift+Tab ourselves
+  const trapTab = (e) => {
+    if (e.key !== "Tab") return;
+    const items = [...boxRef.current.querySelectorAll("input, button")].filter(
+      (el) => !el.disabled
+    );
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   const save = () => {
     spotify.setClientId(clientId);
@@ -29,8 +57,16 @@ export default function KeysModal({ onClose, needSpotify }) {
 
   return (
     <div className="modal-backdrop" onClick={() => onClose(null)}>
-      <div className="modal panel" onClick={(e) => e.stopPropagation()}>
-        <h2 className="panel-title">🔑 API keys</h2>
+      <div
+        className="modal panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keys-title"
+        ref={boxRef}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={trapTab}
+      >
+        <h2 className="panel-title" id="keys-title">🔑 API keys</h2>
         {needSpotify && (
           <p className="status need">You'll need a Spotify client ID to connect — it takes about a minute.</p>
         )}

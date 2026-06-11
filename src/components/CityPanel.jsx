@@ -110,7 +110,12 @@ export default function CityPanel({ stop, index, artists, usingSampleTaste, onCl
             Stop {index + 1} · {fmtDate(stop.arrive)} – {fmtDate(stop.depart)}
           </p>
         </div>
-        <button className="close-x" title="Close" onClick={() => { sound.zap(); onClose(); }}>
+        <button
+          className="close-x"
+          title="Close"
+          aria-label="Close"
+          onClick={() => { sound.zap(); onClose(); }}
+        >
           ×
         </button>
       </header>
@@ -121,6 +126,7 @@ export default function CityPanel({ stop, index, artists, usingSampleTaste, onCl
             <button
               key={g}
               className={"bubble" + (picked.has(g) ? " on" : "")}
+              aria-pressed={picked.has(g)}
               onClick={() => toggleGenre(g)}
             >
               {g}
@@ -134,10 +140,14 @@ export default function CityPanel({ stop, index, artists, usingSampleTaste, onCl
         </div>
       )}
 
-      {state.phase === "loading" && <p className="status">Finding shows for you…</p>}
-      {state.phase === "error" && (
-        <p className="status err">Hmm, the concert feeds hiccuped — {state.error}</p>
-      )}
+      {/* persistent live region so screen readers hear the feed outcome
+          without focus ever leaving the page */}
+      <div aria-live="polite">
+        {state.phase === "loading" && <p className="status">Finding shows for you…</p>}
+        {state.phase === "error" && (
+          <p className="status err">Hmm, the concert feeds hiccuped — {state.error}</p>
+        )}
+      </div>
 
       {state.phase === "done" && (
         <div className="city-body">

@@ -24,6 +24,19 @@ export default function App() {
 
   useEffect(() => saveItinerary(stops), [stops]);
 
+  // Bouncing back to "Connect Spotify" after a failed round-trip looked like
+  // nothing happened — keep the failure in state so TopBar can own up to it.
+  const spotifyFailed = useCallback((e) => {
+    console.error("spotify:", e);
+    setSp({
+      phase: "error",
+      profile: null,
+      artists: [],
+      message: "Spotify hiccuped — try again",
+      detail: e?.message || String(e),
+    });
+  }, []);
+
   // finish a PKCE redirect (if any), then load profile + top artists
   useEffect(() => {
     (async () => {
@@ -38,17 +51,10 @@ export default function App() {
         setSp({ phase: "connected", profile, artists });
         if (justConnected) sound.chime();
       } catch (e) {
-        console.error("spotify:", e);
-        setSp({ phase: "idle", profile: null, artists: [] });
+        spotifyFailed(e);
       }
     })();
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && setSelectedId(null);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [spotifyFailed]);
 
   const connect = () => {
     if (!spotify.getClientId()) {
@@ -56,7 +62,9 @@ export default function App() {
       setKeysOpen(true);
       return;
     }
-    spotify.beginLogin().catch(console.error);
+    // a retry from the error button drops the stale error before redirecting
+    setSp({ phase: "loading", profile: null, artists: [] });
+    spotify.beginLogin().catch(spotifyFailed);
   };
 
   const disconnect = () => {
@@ -64,11 +72,28 @@ export default function App() {
     setSp({ phase: "idle", profile: null, artists: [] });
   };
 
-  const closeKeys = (savedClientId) => {
-    setKeysOpen(false);
-    if (needSpotify && savedClientId) spotify.beginLogin().catch(console.error);
-    setNeedSpotify(false);
-  };
+  const closeKeys = useCallback(
+    (savedClientId) => {
+      setKeysOpen(false);
+      if (needSpotify && savedClientId) spotify.beginLogin().catch(spotifyFailed);
+      setNeedSpotify(false);
+    },
+    [needSpotify, spotifyFailed]
+  );
+
+  // Escape peels only the topmost layer: the keys modal (a cancel, same as a
+  // backdrop click) sits above the city panel. The search dropdown is layered
+  // in between, but it lives in ItineraryPanel state — it swallows its own
+  // Escape via stopPropagation before this window-level listener sees it.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      if (keysOpen) closeKeys(null);
+      else setSelectedId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [keysOpen, closeKeys]);
 
   const addStop = useCallback((stop) => {
     const s = { ...stop, id: newId() };
@@ -79,6 +104,23 @@ export default function App() {
   const removeStop = useCallback((id) => {
     setStops((prev) => prev.filter((s) => s.id !== id));
     setSelectedId((sel) => (sel === id ? null : sel));
+  }, []);
+
+  const updateStop = useCallback((id, patch) => {
+    setStops((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  }, []);
+
+  // dir is ±1; arcs, numbering and the km counter all derive from stops order,
+  // so a swap is the whole job
+  const moveStop = useCallback((id, dir) => {
+    setStops((prev) => {
+      const i = prev.findIndex((s) => s.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
   }, []);
 
   const selectedIdx = stops.findIndex((s) => s.id === selectedId);
@@ -118,6 +160,8 @@ export default function App() {
         onSelect={setSelectedId}
         onRemove={removeStop}
         onAdd={addStop}
+        onUpdate={updateStop}
+        onMove={moveStop}
       />
 
       {selected && (

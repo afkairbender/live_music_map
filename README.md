@@ -93,7 +93,8 @@ redirect URI in the Spotify dashboard.
 | Drag / scroll | Spin / zoom the globe |
 | Click a stop (globe or list) | Fly there + show concerts during your stay |
 | `ESC` or click empty space | Close the city panel |
-| "Where to next?" | Search any city (local list + Open-Meteo geocoder) |
+| "Where to next?" | Search any city (local list + Open-Meteo geocoder, arrow keys + Enter work) |
+| ✎ / ↑ ↓ on a stop | Edit its dates / reorder the trip |
 | 🔊 | Toggle the sound effects |
 | 🔑 API keys | Set Spotify client ID / Ticketmaster key |
 

@@ -139,6 +139,16 @@ body {
 
 .btn.spotify.on:hover { border-color: var(--coral); color: var(--coral); }
 
+/* login round-trip went sideways — same pill, apologetic coral-dark tint */
+.btn.spotify.err {
+  background: var(--coral-soft);
+  color: var(--coral-dark);
+  border: 1.5px solid var(--coral);
+  box-shadow: none;
+}
+
+.btn.spotify.err:hover { box-shadow: 0 3px 12px rgba(255, 56, 92, 0.25); }
+
 .pulse-dot {
   width: 9px;
   height: 9px;
@@ -206,6 +216,7 @@ body {
 .stops li {
   display: flex;
   align-items: center;
+  flex-wrap: wrap; /* lets the inline date editor drop to its own full-width line */
   border-radius: 14px;
   margin-bottom: 2px;
   transition: background 0.12s;
@@ -275,6 +286,85 @@ li.sel .stop-num { background: var(--teal); box-shadow: 0 2px 6px rgba(0, 166, 1
 .stop-x:hover,
 .close-x:hover { background: var(--coral-soft); color: var(--coral); }
 
+/* per-stop tool cluster: ↑ ↓ ✎ × */
+
+.stop-tools {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.stop-move,
+.stop-edit {
+  background: none;
+  border: 0;
+  color: #c0c0c0;
+  font-family: var(--sans);
+  line-height: 1;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, opacity 0.12s;
+}
+
+/* reorder arrows tuck away until the row is hovered or focused so the list
+   reads clean; hover-less (touch) devices get them always-on below */
+.stop-move {
+  width: 20px;
+  height: 26px;
+  font-size: 12px;
+  opacity: 0;
+}
+
+.stop-edit {
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+}
+
+.stops li:hover .stop-move,
+.stops li:focus-within .stop-move { opacity: 1; }
+
+.stop-move:disabled { cursor: default; }
+
+.stops li:hover .stop-move:disabled,
+.stops li:focus-within .stop-move:disabled { opacity: 0.3; }
+
+.stop-move:hover:not(:disabled),
+.stop-edit:hover { background: var(--coral-soft); color: var(--coral); }
+
+@media (hover: none) {
+  .stop-move { opacity: 1; }
+  .stop-move:disabled { opacity: 0.3; }
+}
+
+/* inline date editor — drops in under the row, mirrors the add-form's date row.
+   The 300px panel is tight for two date fields + save/cancel, so the fields
+   may shrink and the picker indicator goes (typing/arrow keys still work). */
+
+.stop-edit-row {
+  flex-basis: 100%;
+  min-width: 0; /* without this its auto min-size (intrinsic field widths) busts the panel */
+  margin-top: 0;
+  padding: 2px 8px 10px;
+  gap: 6px;
+}
+
+.stop-edit-row label { min-width: 0; }
+
+.stop-edit-row input[type="date"] {
+  min-width: 0;
+  padding: 8px 6px;
+}
+
+.stop-edit-row input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
+
+.save-btn {
+  flex-shrink: 0;
+  width: 30px;
+  padding: 8px 0;
+  font-size: 13px;
+}
+
 /* add-city form */
 
 .add-form { border-top: 1px solid var(--line); padding: 12px 14px 14px; }
@@ -334,7 +424,9 @@ input[type="date"] { font-size: 12.5px; padding: 8px 8px; }
   text-align: left;
 }
 
-.search-results button:hover { background: var(--coral-soft); color: var(--coral); }
+/* .active mirrors hover for the keyboard-driven highlight */
+.search-results button:hover,
+.search-results button.active { background: var(--coral-soft); color: var(--coral); }
 
 .cc { color: var(--sub); font-size: 12px; font-weight: 600; margin-left: 8px; }
 
@@ -658,7 +750,34 @@ input[type="date"] { font-size: 12.5px; padding: 8px 8px; }
 
   .hint { display: none; }
 
-  .logo { font-size: 16px; }
+  /* the controls keep their full width; the logo is the flexible one — it
+     shrinks and ellipsizes so nothing ever overlaps, down to 320px */
+  .topbar { padding: 10px 12px; gap: 8px; }
+
+  .logo {
+    font-size: 14px;
+    gap: 6px;
+    min-width: 0;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .logo-mark { display: none; }
+
+  .controls { gap: 6px; flex-shrink: 0; }
+
+  .controls .btn { font-size: 13px; padding: 9px 12px; }
+
+  .controls .btn.round { width: 36px; height: 36px; }
+
+  /* 🔑 keeps its meaning solo; the button's aria-label carries the name */
+  .keys-label { display: none; }
+
+  /* reorder arrows are always visible where there's no hover to reveal them */
+  .stop-move { opacity: 1; }
+  .stop-move:disabled { opacity: 0.3; }
 }
 
 /* soft rounded scrollbars */
