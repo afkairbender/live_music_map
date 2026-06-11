@@ -6,6 +6,9 @@ import * as sound from "../lib/sound.js";
 
 const SRC_BADGE = {
   ra: ["RA", "Resident Advisor"],
+  evm: ["EVM", "Eventim network"],
+  dice: ["DICE", "DICE"],
+  goout: ["GO", "GoOut"],
   bit: ["BIT", "Bandsintown"],
   tm: ["TM", "Ticketmaster"],
 };

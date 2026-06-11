@@ -137,14 +137,16 @@ export function fetchMe() {
   return api("/me");
 }
 
-// Union of medium- and short-term top artists, ranked by first appearance.
+// Union of medium-, short- and long-term top artists, ranked by first
+// appearance — long_term keeps old favorites that fell out of rotation.
 export async function fetchTopArtists() {
-  const [med, short] = await Promise.all([
+  const [med, short, long] = await Promise.all([
     api("/me/top/artists?limit=50&time_range=medium_term"),
     api("/me/top/artists?limit=50&time_range=short_term"),
+    api("/me/top/artists?limit=50&time_range=long_term"),
   ]);
   const seen = new Map();
-  for (const a of [...med.items, ...short.items]) {
+  for (const a of [...med.items, ...short.items, ...long.items]) {
     if (!seen.has(a.id)) {
       seen.set(a.id, {
         id: a.id,

@@ -1,8 +1,18 @@
-// Real concert listings — no fake data. Three sources, fetched in parallel,
+// Real concert listings — no fake data. Six sources, fetched in parallel,
 // merged and deduped:
 //  - Resident Advisor: public GraphQL endpoint (ra.co/graphql). It has no
 //    CORS headers, so we call it through the same-origin /api/ra route —
 //    Vite's dev proxy locally, a Netlify rewrite in production.
+//  - Eventim network: public-api.eventim.com serves Europe's biggest
+//    ticketer group (eventim.de, oeticket.at, ticketcorner.ch, eventim.fr /
+//    France Billet, entradas.com, ticketone.it, billetlugen.dk,
+//    eventim.co.uk) keyless with open CORS. Akamai blocks non-browser TLS
+//    fingerprints, so it must be called browser-direct — a server-side
+//    proxy would get 403.
+//  - DICE: keyless unified_search, great club/gig coverage. CORS is
+//    origin-allowlisted, so it goes through the same-origin /api/dice route.
+//  - GoOut: keyless schedules API via the same-origin /api/goout route —
+//    Czech/Slovak scene depth.
 //  - Bandsintown: public REST API, queried per top artist (tour dates near
 //    the stop). No key needed.
 //  - Ticketmaster Discovery: optional free API key for extra arena/stadium
@@ -12,11 +22,15 @@ import { geohash, distanceKm } from "./geo.js";
 
 const LS_TM_KEY = "lmm.tm.key";
 const LS_RA_AREAS = "lmm.ra.areas.v1";
+const LS_EVM_CITIES = "lmm.evm.cities.v1";
 const RA_PROXY = "/api/ra";
+const DICE_PROXY = "/api/dice";
 // Bandsintown allowlists app_ids (arbitrary ones get 403); js_widget is the
 // public id its own embeddable widget uses in browsers.
 const BIT_APP_ID = "js_widget";
-const BIT_MAX_ARTISTS = 30;
+// Spotify supplies up to ~150 artists (3 time ranges × 50); query them all —
+// the API showed no rate limiting at 25 rapid sequential requests.
+const BIT_MAX_ARTISTS = 150;
 const NEARBY_KM = 80; // venue can be this far from the stop's coordinates
 
 export function getTmKey() {
@@ -51,6 +65,11 @@ const norm = (s) =>
     .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+// norm() strips non-Latin scripts entirely; without a fallback every
+// Japanese/Cyrillic-titled event on the same date would collapse into one
+// dedupe key.
+const slug = (s) => norm(s || "") || (s || "").toLowerCase().trim();
 
 // Tag each event with the top artists it features: exact match on billed
 // attractions, fuzzy fallback on the event title for longer artist names.
@@ -91,7 +110,9 @@ export async function fetchConcerts(stop, artists) {
   let entry = cache.get(cacheKey);
   if (!entry) {
     entry = await fetchAllSources(stop, names, tmKey);
-    cache.set(cacheKey, entry);
+    // don't memoize degraded results — a transient source failure would
+    // otherwise hide its events for the whole session
+    if (!entry.sources.some((s) => s.status === "error")) cache.set(cacheKey, entry);
   }
   const events = applyMatches(entry.events, artists);
   events.sort(
@@ -104,8 +125,13 @@ export async function fetchConcerts(stop, artists) {
 }
 
 async function fetchAllSources(stop, names, tmKey) {
+  // order matters: dedupe keeps the first occurrence, so richer listings
+  // (lineups, local ticket links) win over sparser ones
   const tasks = [
     ["ra", "Resident Advisor", fetchResidentAdvisor(stop)],
+    ["evm", "Eventim", fetchEventim(stop)],
+    ["dice", "DICE", fetchDice(stop)],
+    ["goout", "GoOut", fetchGoOut(stop)],
     ["bit", "Bandsintown", fetchBandsintown(stop, names)],
     ["tm", "Ticketmaster", tmKey ? fetchTicketmaster(stop, tmKey) : Promise.resolve({ skipped: true })],
   ];
@@ -128,14 +154,14 @@ async function fetchAllSources(stop, names, tmKey) {
     for (const ev of res.value.events) {
       // the same show often appears on two sources under slightly different
       // names — match on title+date, or venue+date+headliner
-      const keys = [ev.date + "|" + norm(ev.name)];
-      if (ev.venue) keys.push(ev.date + "|" + norm(ev.venue) + "|" + norm(ev.attractions[0] || ev.name));
+      const keys = [ev.date + "|" + slug(ev.name)];
+      if (ev.venue) keys.push(ev.date + "|" + slug(ev.venue) + "|" + slug(ev.attractions[0] || ev.name));
       if (keys.some((k) => seen.has(k))) continue;
       keys.forEach((k) => seen.add(k));
       events.push(ev);
       count++;
     }
-    sources.push({ id, label, status: "ok", count });
+    sources.push({ id, label, status: "ok", count, detail: res.value.detail });
   });
 
   if (!sources.some((s) => s.status === "ok")) {
@@ -206,8 +232,9 @@ async function resolveRaArea(stop) {
     areaMemo.set(key, stored[key]);
     return stored[key];
   }
+  // limit must stay <= 10 — larger values make the endpoint silently return []
   const data = await raQuery(
-    "query($searchTerm: String!) { areas(searchTerm: $searchTerm, limit: 8) { id name country { name } } }",
+    "query($searchTerm: String!) { areas(searchTerm: $searchTerm, limit: 10) { id name country { name } } }",
     { searchTerm: stop.city }
   );
   const areas = data?.areas || [];
@@ -228,8 +255,10 @@ async function resolveRaArea(stop) {
   return id;
 }
 
+// sort makes pagination deterministic — without it pages can skip or repeat
+// rows while we walk them
 const RA_EVENTS_QUERY = `query($filters: FilterInputDtoInput, $page: Int, $pageSize: Int) {
-  eventListings(filters: $filters, pageSize: $pageSize, page: $page) {
+  eventListings(filters: $filters, pageSize: $pageSize, page: $page, sort: {listingDate: {order: ASCENDING}}) {
     data {
       id
       listingDate
@@ -239,10 +268,10 @@ const RA_EVENTS_QUERY = `query($filters: FilterInputDtoInput, $page: Int, $pageS
   }
 }`;
 
-const RA_PAGE = 20;
-// big cities list ~300-400 events/week (Berlin 316, London 383 when probed),
-// so the cap needs headroom or matched artists late in a stay get cut off
-const RA_MAX_PAGES = 15;
+const RA_PAGE = 100; // server caps pageSize at 100 ("Limit must not be greater than 100")
+// London listed 1232 events over 30 days when probed — 20 pages of 100 keeps
+// even month-long stays in the biggest cities complete
+const RA_MAX_PAGES = 20;
 
 async function fetchResidentAdvisor(stop) {
   const areaId = await resolveRaArea(stop);
@@ -260,7 +289,10 @@ async function fetchResidentAdvisor(stop) {
   if (rows.length === RA_PAGE && total > rows.length) {
     const rest = [];
     for (let n = 2; n <= Math.ceil(total / RA_PAGE); n++) rest.push(fetchPage(n));
-    for (const d of await Promise.all(rest)) rows = rows.concat(d?.eventListings?.data || []);
+    // keep whatever pages succeed — one failed page shouldn't void the rest
+    for (const d of await Promise.allSettled(rest)) {
+      if (d.status === "fulfilled") rows = rows.concat(d.value?.eventListings?.data || []);
+    }
   }
 
   const events = [];
@@ -280,6 +312,277 @@ async function fetchResidentAdvisor(stop) {
       url: ev.contentUrl ? new URL(ev.contentUrl, "https://ra.co").href : null,
       attractions: (ev.artists || []).map((a) => a.name),
     });
+  }
+  return { events };
+}
+
+// ---- Eventim network ----
+// One shared search API behind Europe's largest ticketer group. Keyless and
+// CORS-open, but Akamai rejects non-browser TLS fingerprints — these calls
+// only work browser-direct (do NOT route them through a proxy).
+
+const EVM_BASE = "https://public-api.eventim.com/websearch/search/api/exploration/v1/products";
+// the API hard-caps top at 50 and silently ignores its page param, so wide
+// stays are fetched one day at a time — no single day exceeds 50 listings
+const EVM_TOP = 50;
+const EVM_MAX_DAYS = 31;
+
+// per-country shop + the local name of its music category (probed June 2026;
+// the API's categories facet is empty, so these can't be discovered at runtime)
+const EVM_SHOPS = {
+  DE: { webId: "web__eventim-de", lang: "de", categories: ["Konzerte"] },
+  AT: { webId: "web__oeticket-at", lang: "de", categories: ["Konzerte"] },
+  CH: { webId: "web__ticketcorner-ch", lang: "de", categories: ["Musik"] },
+  FR: { webId: "web__eventim-fr", lang: "fr", categories: ["Concerts & Festivals"] },
+  ES: { webId: "web__entradas-com", lang: "es", categories: ["Conciertos y festivales", "Discotecas y Fiestas"] },
+  IT: { webId: "web__ticketone-it", lang: "it", categories: ["Concerti"] },
+  DK: { webId: "web__billetlugen-dk", lang: "da", categories: ["Musik"] },
+  GB: { webId: "web__eventim-co-uk", lang: "en", categories: ["Music"] },
+};
+
+// city ids verified via the API's cities facet (one shared id space across
+// shops); other cities resolve at runtime through the same facet
+const EVM_CITY_SEED = {
+  "berlin|DE": "1", "hamburg|DE": "7", "cologne|DE": "9", "munich|DE": "11",
+  "frankfurt|DE": "6", "stuttgart|DE": "12", "dresden|DE": "3", "leipzig|DE": "10",
+  "zurich|CH": "21", "paris|FR": "369", "madrid|ES": "370", "barcelona|ES": "371",
+  "milan|IT": "215", "london|GB": "181", "copenhagen|DK": "1694",
+};
+
+// the facet search wants local spellings; stops use English names
+const EVM_LOCAL_NAME = {
+  vienna: "wien", munich: "muenchen", cologne: "koeln", zurich: "zuerich",
+  geneva: "genf", milan: "milano", rome: "roma", florence: "firenze",
+  naples: "napoli", turin: "torino", venice: "venezia", copenhagen: "koebenhavn",
+  seville: "sevilla", nuremberg: "nuernberg", hanover: "hannover", genoa: "genova",
+};
+
+function evmUrl(shop, params) {
+  const q = new URLSearchParams({ webId: shop.webId, language: shop.lang, ...params });
+  return EVM_BASE + "?" + q;
+}
+
+async function evmFetch(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+async function resolveEvmCity(shop, stop) {
+  const key = norm(stop.city) + "|" + (stop.country || "").toUpperCase();
+  if (key in EVM_CITY_SEED) return EVM_CITY_SEED[key];
+  let stored = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(LS_EVM_CITIES)) || {};
+  } catch {
+    // ignore — falls through to a fresh lookup
+  }
+  if (key in stored) return stored[key];
+
+  const term = EVM_LOCAL_NAME[norm(stop.city)] || stop.city;
+  const data = await evmFetch(evmUrl(shop, { search_term: term, top: "1" }));
+  const items = (data.facets || []).find((f) => f.name === "cities")?.facetItems || [];
+  const wantNorm = norm(stop.city);
+  const wantLocal = norm(term);
+  const hit = items.find((i) => {
+    const v = norm(i.value || "");
+    return i.info && (v === wantNorm || v === wantLocal || v.startsWith(wantLocal + " "));
+  });
+  const id = hit ? hit.info.slice(hit.info.lastIndexOf("-") + 1) : null;
+  // only persist hits — a cached miss would outlive fixes to the matching
+  if (id != null) {
+    try {
+      localStorage.setItem(LS_EVM_CITIES, JSON.stringify({ ...stored, [key]: id }));
+    } catch {
+      // storage full/blocked — lookup just repeats next time
+    }
+  }
+  return id;
+}
+
+function eachDay(from, to, cap) {
+  const days = [];
+  const end = new Date(to + "T00:00:00Z").getTime();
+  for (let t = new Date(from + "T00:00:00Z").getTime(); t <= end && days.length < cap; t += 86400000) {
+    days.push(new Date(t).toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+async function fetchEventim(stop) {
+  const shop = EVM_SHOPS[(stop.country || "").toUpperCase()];
+  if (!shop) return { skipped: true };
+  const cityId = await resolveEvmCity(shop, stop);
+  if (!cityId) return { skipped: true };
+
+  const slices = [];
+  for (const category of shop.categories) {
+    for (const day of eachDay(stop.arrive, stop.depart, EVM_MAX_DAYS)) slices.push({ category, day });
+  }
+  const lists = await pool(slices, 6, ({ category, day }) =>
+    evmFetch(
+      evmUrl(shop, {
+        city_ids: cityId,
+        categories: category,
+        date_from: day,
+        date_to: day,
+        sort: "DateAsc",
+        top: String(EVM_TOP),
+      })
+    ).then((d) => d.products || [])
+  );
+  if (lists.every((l) => l === null)) throw new Error("no response");
+
+  const events = [];
+  const seen = new Set();
+  for (const products of lists) {
+    for (const p of products || []) {
+      const le = p.typeAttributes?.liveEntertainment;
+      const start = le?.startDate || "";
+      const date = start.slice(0, 10);
+      if (!p.productId || !date || seen.has(p.productId)) continue;
+      seen.add(p.productId);
+      events.push({
+        id: "evm-" + p.productId,
+        source: "evm",
+        name: p.name,
+        date,
+        time: start.length >= 16 ? start.slice(11, 16) : null,
+        venue: le?.location?.name || null,
+        url: p.link || (p.url ? p.url.domain + p.url.path : null),
+        attractions: (p.attractions || []).map((a) => a.name).filter(Boolean),
+      });
+    }
+  }
+  return { events };
+}
+
+// ---- DICE ----
+// Keyless browse search grouped by day; CORS is origin-allowlisted, so it
+// goes through the same-origin /api/dice route (Vite proxy / Netlify rewrite).
+
+const DICE_PAGE = 50;
+const DICE_MAX_PAGES = 4;
+
+async function fetchDice(stop) {
+  const events = [];
+  const seen = new Set();
+  let cursor = null;
+  for (let n = 0; n < DICE_MAX_PAGES; n++) {
+    const res = await fetch(DICE_PROXY, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        count: DICE_PAGE,
+        lat: stop.lat,
+        lng: stop.lng,
+        dates: { from: stop.arrive, to: stop.depart },
+        ...(cursor ? { cursor } : {}),
+      }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+
+    for (const section of data.sections || []) {
+      for (const item of section.items || []) {
+        const ev = item.event;
+        if (item.type !== "event" || !ev || seen.has(ev.id) || ev.status === "cancelled") continue;
+        seen.add(ev.id);
+        const start = ev.dates?.event_start_date || "";
+        const date = start.slice(0, 10);
+        if (!date || date < stop.arrive || date > stop.depart) continue;
+        // browse mode keys off DICE's nearest city — when the stop is far
+        // from any DICE city that "nearest" can be a long way off
+        const v = ev.venues?.[0];
+        const loc = v?.location || v?.city?.location;
+        if (loc && distanceKm(stop, loc) > NEARBY_KM) continue;
+        events.push({
+          id: "dice-" + ev.id,
+          source: "dice",
+          name: ev.name,
+          date,
+          time: start.length >= 16 ? start.slice(11, 16) : null,
+          venue: v?.name || null,
+          url: "https://dice.fm/event/" + ev.id,
+          attractions: (ev.summary_lineup?.artists || []).map((a) => a.name).filter(Boolean),
+        });
+      }
+    }
+    cursor = data.next_page_cursor;
+    if (!cursor) break;
+  }
+  return { events };
+}
+
+// ---- GoOut ----
+// The JSON:API behind goout.net (its feeder API has no upper date bound and
+// returns unordered rows). Keyless but no CORS headers, so it goes through
+// the same-origin /api/goout route. City ids scraped from goout.net pages
+// (June 2026) — it only covers these scenes, other stops skip it.
+
+const GOOUT_PROXY = "/api/goout";
+// CZ/SK only — GoOut's Polish and German scenes returned ~no rows when probed
+const GOOUT_CITIES = {
+  "prague|CZ": 101748113, "brno|CZ": 101748109, "ostrava|CZ": 101748125,
+  "pilsen|CZ": 101748111, "bratislava|SK": 1108800123,
+};
+const GOOUT_PAGE = 50;
+const GOOUT_MAX_PAGES = 6;
+
+async function fetchGoOut(stop) {
+  const cityId = GOOUT_CITIES[norm(stop.city) + "|" + (stop.country || "").toUpperCase()];
+  if (!cityId) return { skipped: true };
+
+  const events = [];
+  const seen = new Set();
+  let scrollId = null;
+  for (let page = 0; page < GOOUT_MAX_PAGES; page++) {
+    const q = new URLSearchParams({
+      "languages[]": "en",
+      "categories[]": "concerts",
+      "cityIds[]": String(cityId),
+      after: stop.arrive + "T00:00:00.000Z",
+      before: stop.depart + "T23:59:59.999Z",
+      sort: "popularity:desc",
+      grouped: "true",
+      limit: String(GOOUT_PAGE),
+      include: "events,venues,performers",
+      ...(scrollId ? { scrollId } : {}),
+    });
+    const res = await fetch(GOOUT_PROXY + "?" + q);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    // GoOut emits raw control characters inside JSON strings; the response is
+    // minified, so blanking them never touches structural whitespace
+    const data = JSON.parse((await res.text()).replace(/[\u0000-\u001f]/g, " "));
+
+    const evById = new Map((data.included?.events || []).map((e) => [e.id, e]));
+    const venueById = new Map((data.included?.venues || []).map((v) => [v.id, v]));
+    const perfById = new Map((data.included?.performers || []).map((p) => [p.id, p]));
+    const rows = data.schedules || [];
+
+    for (const s of rows) {
+      const start = s.attributes?.startAt || "";
+      const date = start.slice(0, 10);
+      if (!date || seen.has(s.id) || s.attributes?.state === "cancelled") continue;
+      if (date < stop.arrive || date > stop.depart) continue;
+      seen.add(s.id);
+      const ev = evById.get(s.relationships?.event?.id);
+      const venue = venueById.get(s.relationships?.venue?.id);
+      events.push({
+        id: "go-" + s.id,
+        source: "goout",
+        name: ev?.locales?.en?.name || venue?.locales?.en?.name || "Concert",
+        date,
+        time: s.attributes?.hasTime && start.length >= 16 ? start.slice(11, 16) : null,
+        venue: venue?.locales?.en?.name || null,
+        url: s.url || null,
+        attractions: (ev?.relationships?.performers || [])
+          .map((p) => perfById.get(p.id)?.locales?.en?.name)
+          .filter(Boolean),
+      });
+    }
+    scrollId = data.meta?.nextScrollId;
+    if (!scrollId || rows.length < GOOUT_PAGE) break;
   }
   return { events };
 }
@@ -314,7 +617,8 @@ async function fetchBandsintown(stop, names) {
       events.push(ev);
     }
   }
-  return { events };
+  const failed = lists.filter((l) => l === null).length;
+  return { events, detail: failed ? `${top.length - failed}/${top.length} artists checked` : undefined };
 }
 
 const BIT_DIRECT = "https://rest.bandsintown.com";
@@ -333,11 +637,13 @@ async function bitFetch(path) {
 }
 
 async function bitArtistEvents(name, stop) {
-  // Bandsintown wants /, ? and * double-encoded in artist names
+  // Bandsintown wants /, ? and * double-encoded in artist names, and dots
+  // percent-encoded ("Fred again.." only resolves as Fred%20again%2E%2E)
   const enc = encodeURIComponent(name)
     .replace(/%2F/gi, "%252F")
     .replace(/%3F/gi, "%253F")
-    .replace(/\*/g, "%252A");
+    .replace(/\*/g, "%252A")
+    .replace(/\./g, "%2E");
   const res = await bitFetch(
     "/artists/" + enc + "/events?app_id=" + BIT_APP_ID +
       "&date=" + stop.arrive + "%2C" + stop.depart
@@ -377,41 +683,48 @@ async function bitArtistEvents(name, stop) {
 
 // ---- Ticketmaster ----
 
+const TM_PAGE = 200; // API rejects size > 200
+const TM_MAX_PAGES = 5; // deep-paging rule: size * page < 1000
+
 async function fetchTicketmaster(stop, apikey) {
-  const params = new URLSearchParams({
-    apikey,
-    geoPoint: geohash(stop.lat, stop.lng),
-    radius: "60",
-    unit: "km",
-    classificationName: "Music",
-    startDateTime: stop.arrive + "T00:00:00Z",
-    endDateTime: stop.depart + "T23:59:59Z",
-    size: "180",
-    sort: "date,asc",
-  });
-  const res = await fetch(
-    "https://app.ticketmaster.com/discovery/v2/events.json?" + params
-  );
-  if (!res.ok) throw new Error("HTTP " + res.status);
-  const data = await res.json();
-  const seen = new Set();
   const events = [];
-  for (const ev of data._embedded?.events || []) {
-    const date = ev.dates?.start?.localDate;
-    if (!date) continue;
-    const dedupe = norm(ev.name) + "|" + date;
-    if (seen.has(dedupe)) continue;
-    seen.add(dedupe);
-    events.push({
-      id: "tm-" + ev.id,
-      source: "tm",
-      name: ev.name,
-      date,
-      time: ev.dates?.start?.localTime?.slice(0, 5) || null,
-      venue: ev._embedded?.venues?.[0]?.name || null,
-      url: ev.url || null,
-      attractions: (ev._embedded?.attractions || []).map((a) => a.name),
+  const seen = new Set();
+  for (let page = 0; page < TM_MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      apikey,
+      geoPoint: geohash(stop.lat, stop.lng),
+      radius: String(NEARBY_KM),
+      unit: "km",
+      classificationName: "Music",
+      // venue-local time, not UTC — late shows on the departure day stay in
+      localStartDateTime: stop.arrive + "T00:00:00," + stop.depart + "T23:59:59",
+      // default locale=en hides events localized in other languages
+      locale: "*",
+      size: String(TM_PAGE),
+      page: String(page),
+      sort: "date,asc",
     });
+    const res = await fetch(
+      "https://app.ticketmaster.com/discovery/v2/events.json?" + params
+    );
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    for (const ev of data._embedded?.events || []) {
+      const date = ev.dates?.start?.localDate;
+      if (!date || seen.has(ev.id)) continue;
+      seen.add(ev.id);
+      events.push({
+        id: "tm-" + ev.id,
+        source: "tm",
+        name: ev.name,
+        date,
+        time: ev.dates?.start?.localTime?.slice(0, 5) || null,
+        venue: ev._embedded?.venues?.[0]?.name || null,
+        url: ev.url || null,
+        attractions: (ev._embedded?.attractions || []).map((a) => a.name),
+      });
+    }
+    if (page >= (data.page?.totalPages || 1) - 1) break;
   }
   return { events };
 }
