@@ -75,6 +75,26 @@ function applyMatches(events, artists) {
   });
 }
 
+// Tidy a source's genre labels into display-ready tags: title-case, dedupe,
+// and drop the catch-all buckets that say nothing ("Music", "Other", ...).
+const GENRE_NOISE = new Set(["music", "other", "undefined", "unknown"]);
+
+function cleanGenres(raw) {
+  const out = [];
+  const seen = new Set();
+  for (const g of raw) {
+    const label = (g || "")
+      .trim()
+      .toLowerCase()
+      .replace(/(^|[\s/&-])[a-z]/g, (c) => c.toUpperCase());
+    const key = norm(label);
+    if (!label || GENRE_NOISE.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    out.push(label);
+  }
+  return out;
+}
+
 const cache = new Map();
 
 export async function fetchConcerts(stop, artists) {
@@ -228,12 +248,12 @@ async function resolveRaArea(stop) {
   return id;
 }
 
-const RA_EVENTS_QUERY = `query($filters: FilterInputDtoInput, $page: Int, $pageSize: Int) {
+const raEventsQuery = (withGenres) => `query($filters: FilterInputDtoInput, $page: Int, $pageSize: Int) {
   eventListings(filters: $filters, pageSize: $pageSize, page: $page) {
     data {
       id
       listingDate
-      event { id title date startTime contentUrl venue { name } artists { name } }
+      event { id title date startTime contentUrl venue { name } artists { name }${withGenres ? " genres { name }" : ""} }
     }
     totalResults
   }
@@ -244,6 +264,9 @@ const RA_PAGE = 20;
 // so the cap needs headroom or matched artists late in a stay get cut off
 const RA_MAX_PAGES = 15;
 
+// drop to a genre-less query if RA ever rejects the genres field
+let raHasGenres = true;
+
 async function fetchResidentAdvisor(stop) {
   const areaId = await resolveRaArea(stop);
   if (areaId == null) return { skipped: true, detail: stop.city + " isn't a Resident Advisor area" };
@@ -252,9 +275,17 @@ async function fetchResidentAdvisor(stop) {
     areas: { eq: areaId },
     listingDate: { gte: stop.arrive + "T00:00:00.000Z", lte: stop.depart + "T23:59:59.999Z" },
   };
-  const fetchPage = (n) => raQuery(RA_EVENTS_QUERY, { filters, pageSize: RA_PAGE, page: n });
+  const fetchPage = (n) =>
+    raQuery(raEventsQuery(raHasGenres), { filters, pageSize: RA_PAGE, page: n });
 
-  const first = await fetchPage(1);
+  let first;
+  try {
+    first = await fetchPage(1);
+  } catch (e) {
+    if (!raHasGenres || !/genres/i.test(e.message)) throw e;
+    raHasGenres = false;
+    first = await fetchPage(1);
+  }
   let rows = first?.eventListings?.data || [];
   const total = Math.min(first?.eventListings?.totalResults || rows.length, RA_PAGE * RA_MAX_PAGES);
   if (rows.length === RA_PAGE && total > rows.length) {
@@ -279,6 +310,7 @@ async function fetchResidentAdvisor(stop) {
       venue: ev.venue?.name || null,
       url: ev.contentUrl ? new URL(ev.contentUrl, "https://ra.co").href : null,
       attractions: (ev.artists || []).map((a) => a.name),
+      genres: cleanGenres((ev.genres || []).map((g) => g.name)),
     });
   }
   return { events };
@@ -370,6 +402,7 @@ async function bitArtistEvents(name, stop) {
       venue: v.name || null,
       url: ev.offers?.find((o) => o.url)?.url || ev.url || null,
       attractions: ev.lineup?.length ? ev.lineup : [name],
+      genres: [], // Bandsintown's events API carries no genre info
     });
   }
   return out;
@@ -411,6 +444,9 @@ async function fetchTicketmaster(stop, apikey) {
       venue: ev._embedded?.venues?.[0]?.name || null,
       url: ev.url || null,
       attractions: (ev._embedded?.attractions || []).map((a) => a.name),
+      genres: cleanGenres(
+        (ev.classifications || []).flatMap((c) => [c.genre?.name, c.subGenre?.name])
+      ),
     });
   }
   return { events };
