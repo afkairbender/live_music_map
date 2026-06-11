@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchConcerts } from "../lib/concerts.js";
 import { flagEmoji } from "../lib/geo.js";
 import { fmtDate } from "../lib/itinerary.js";
@@ -46,10 +46,12 @@ function EventRow({ ev }) {
 
 export default function CityPanel({ stop, index, artists, usingSampleTaste, onClose }) {
   const [state, setState] = useState({ phase: "loading" });
+  const [picked, setPicked] = useState(() => new Set());
 
   useEffect(() => {
     let cancelled = false;
     setState({ phase: "loading" });
+    setPicked(new Set());
     fetchConcerts(stop, artists)
       .then((r) => !cancelled && setState({ phase: "done", ...r }))
       .catch((e) => !cancelled && setState({ phase: "error", error: e.message }));
@@ -58,8 +60,37 @@ export default function CityPanel({ stop, index, artists, usingSampleTaste, onCl
     };
   }, [stop.id, stop.arrive, stop.depart, artists]);
 
-  const matched = state.events?.filter((e) => e.matches.length) || [];
-  const rest = state.events?.filter((e) => !e.matches.length) || [];
+  // every genre on the bill, busiest first — these become the filter bubbles
+  const genres = useMemo(() => {
+    const counts = new Map();
+    for (const ev of state.events || [])
+      for (const g of ev.genres || []) counts.set(g, (counts.get(g) || 0) + 1);
+    return [...counts.keys()].sort(
+      (a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b)
+    );
+  }, [state.events]);
+
+  const toggleGenre = (g) => {
+    sound.tick();
+    setPicked((prev) => {
+      const next = new Set(prev);
+      next.has(g) ? next.delete(g) : next.add(g);
+      return next;
+    });
+  };
+
+  const clearGenres = () => {
+    sound.zap();
+    setPicked(new Set());
+  };
+
+  const visible =
+    picked.size === 0
+      ? state.events
+      : state.events?.filter((e) => e.genres?.some((g) => picked.has(g)));
+
+  const matched = visible?.filter((e) => e.matches.length) || [];
+  const rest = visible?.filter((e) => !e.matches.length) || [];
   const ok = state.sources?.filter((s) => s.status === "ok") || [];
   const failed = state.sources?.filter((s) => s.status === "error") || [];
   const raSkipped = state.sources?.find((s) => s.id === "ra" && s.status === "skipped");
@@ -81,6 +112,25 @@ export default function CityPanel({ stop, index, artists, usingSampleTaste, onCl
         </button>
       </header>
 
+      {state.phase === "done" && genres.length > 0 && (
+        <div className="genre-row">
+          {genres.map((g) => (
+            <button
+              key={g}
+              className={"bubble" + (picked.has(g) ? " on" : "")}
+              onClick={() => toggleGenre(g)}
+            >
+              {g}
+            </button>
+          ))}
+          {picked.size > 0 && (
+            <button className="bubble clear" onClick={clearGenres}>
+              Clear all ×
+            </button>
+          )}
+        </div>
+      )}
+
       {state.phase === "loading" && <p className="status">Finding shows for you…</p>}
       {state.phase === "error" && (
         <p className="status err">Hmm, the concert feeds hiccuped — {state.error}</p>
@@ -92,6 +142,10 @@ export default function CityPanel({ stop, index, artists, usingSampleTaste, onCl
             <p className="status">
               Nothing listed for these dates yet — venues often announce a few
               weeks out, so check back closer to the trip.
+            </p>
+          ) : visible.length === 0 ? (
+            <p className="status">
+              No shows match those genres — try another mix or clear the filters.
             </p>
           ) : (
             <>
