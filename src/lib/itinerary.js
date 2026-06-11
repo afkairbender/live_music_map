@@ -41,10 +41,21 @@ function defaultItinerary() {
   }));
 }
 
+// Corrupt or hand-edited storage flows straight into distance math and date
+// formatting, so every field gets vetted before a saved trip is trusted.
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const validStop = (s) =>
+  s &&
+  typeof s.id === "string" &&
+  typeof s.city === "string" &&
+  Number.isFinite(s.lat) && Math.abs(s.lat) <= 90 &&
+  Number.isFinite(s.lng) && Math.abs(s.lng) <= 180 &&
+  DATE_RE.test(s.arrive) && DATE_RE.test(s.depart);
+
 export function loadItinerary() {
   try {
     const stops = JSON.parse(localStorage.getItem(LS_KEY));
-    if (Array.isArray(stops) && stops.length && stops.every((s) => s.id && s.city)) {
+    if (Array.isArray(stops) && stops.length && stops.every(validStop)) {
       return stops;
     }
   } catch {
@@ -54,5 +65,11 @@ export function loadItinerary() {
 }
 
 export function saveItinerary(stops) {
-  localStorage.setItem(LS_KEY, JSON.stringify(stops));
+  // Private mode / full storage throws on setItem; losing persistence beats
+  // crashing the app from inside a React effect, so swallow it.
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(stops));
+  } catch {
+    // the trip just won't survive a reload
+  }
 }
