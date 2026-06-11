@@ -11,6 +11,22 @@
   force = true
   headers = {Origin = "https://ra.co", Referer = "https://ra.co/events"}
 
+# Same-origin proxy for DICE's keyless unified_search (CORS-allowlisted to
+# dice.fm origins, so the browser can't call it directly).
+[[redirects]]
+  from = "/api/dice"
+  to = "https://api.dice.fm/unified_search"
+  status = 200
+  force = true
+  headers = {User-Agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"}
+
+# Same-origin proxy for GoOut's schedules API (no CORS headers).
+[[redirects]]
+  from = "/api/goout"
+  to = "https://goout.net/services/entities/v1/schedules"
+  status = 200
+  force = true
+
 # Fallback route for Bandsintown (used only if the browser's direct call to
 # rest.bandsintown.com is blocked).
 [[redirects]]

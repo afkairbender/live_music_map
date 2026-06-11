@@ -3,18 +3,16 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  // bind to the IPv4 loopback: Spotify only allows 127.0.0.1 redirect URIs,
-  // and on newer Node "localhost" binds IPv6-only so 127.0.0.1 won't connect
-  server: {
-    host: "127.0.0.1",
-  },
-  preview: {
-    host: "127.0.0.1",
-  },
   build: {
     chunkSizeWarningLimit: 1600,
   },
+  // bind to the IPv4 loopback: Spotify only allows 127.0.0.1 redirect URIs,
+  // and on newer Node "localhost" binds IPv6-only so 127.0.0.1 won't connect
+  preview: {
+    host: "127.0.0.1",
+  },
   server: {
+    host: "127.0.0.1",
     proxy: {
       // Resident Advisor's GraphQL API has no CORS headers, so the app calls
       // it same-origin via /api/ra. In production a Netlify rewrite does the
@@ -29,6 +27,24 @@ export default defineConfig({
           "User-Agent":
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         },
+      },
+      // DICE's unified_search is keyless but CORS-allowlists origins, so it
+      // also goes through a same-origin route. Cloudflare rejects headless
+      // UAs, so pin a real one.
+      "/api/dice": {
+        target: "https://api.dice.fm",
+        changeOrigin: true,
+        rewrite: () => "/unified_search",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        },
+      },
+      // GoOut's schedules API (CZ/SK/PL scene depth) has no CORS headers.
+      "/api/goout": {
+        target: "https://goout.net",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/goout/, "/services/entities/v1/schedules"),
       },
       // Fallback route for Bandsintown — the app calls it directly first and
       // only uses this if the direct call is blocked.
