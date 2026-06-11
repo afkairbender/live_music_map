@@ -388,6 +388,42 @@ input[type="date"] { font-size: 12.5px; padding: 8px 8px; }
 
 .city-dates { font-size: 13px; color: var(--sub); font-weight: 600; margin-top: 3px; }
 
+.genre-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 18px 4px;
+  max-height: 108px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.bubble {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sub);
+  background: #fff;
+  border: 1.5px solid #dddddd;
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s, transform 0.12s;
+}
+
+.bubble:hover { border-color: var(--txt); color: var(--txt); transform: translateY(-1px); }
+
+.bubble.on {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 56, 92, 0.3);
+}
+
+.bubble.clear { border-style: dashed; color: var(--coral-dark); border-color: var(--coral); background: var(--coral-soft); }
+
+.bubble.clear:hover { background: var(--coral); border-color: var(--coral); color: #fff; transform: translateY(-1px); }
+
 .city-body { overflow-y: auto; padding: 4px 10px 0; }
 
 .sec {
