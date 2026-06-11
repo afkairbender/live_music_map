@@ -2,6 +2,23 @@
   command = "npm run build"
   publish = "dist"
 
+# Same-origin proxy for Resident Advisor's GraphQL API (no CORS headers on
+# ra.co). Must come before the SPA catch-all — first match wins.
+[[redirects]]
+  from = "/api/ra"
+  to = "https://ra.co/graphql"
+  status = 200
+  force = true
+  headers = {Origin = "https://ra.co", Referer = "https://ra.co/events"}
+
+# Fallback route for Bandsintown (used only if the browser's direct call to
+# rest.bandsintown.com is blocked).
+[[redirects]]
+  from = "/api/bit/*"
+  to = "https://rest.bandsintown.com/:splat"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
