@@ -179,6 +179,19 @@ function loadAreaCache() {
   }
 }
 
+// RA area ids verified against ra.co (June 2026) — instant lookups for
+// common European stops; other cities go through the areas search above.
+const RA_AREA_SEED = {
+  "amsterdam|NL": 29, "athens|GR": 549, "barcelona|ES": 20, "berlin|DE": 34,
+  "brussels|BE": 405, "budapest|HU": 449, "cologne|DE": 143, "copenhagen|DK": 402,
+  "dublin|IE": 386, "frankfurt|DE": 147, "glasgow|GB": 340, "hamburg|DE": 148,
+  "helsinki|FI": 407, "istanbul|TR": 73, "lisbon|PT": 53, "london|GB": 13,
+  "madrid|ES": 41, "manchester|GB": 344, "milan|IT": 347, "munich|DE": 151,
+  "oslo|NO": 408, "paris|FR": 44, "porto|PT": 364, "prague|CZ": 451,
+  "rome|IT": 351, "stockholm|SE": 396, "tbilisi|GE": 188, "vienna|AT": 450,
+  "warsaw|PL": 454, "zurich|CH": 390,
+};
+
 const areaMemo = new Map();
 
 // RA organises listings by "area" (Berlin, London, ...). Resolve the stop's
@@ -186,6 +199,7 @@ const areaMemo = new Map();
 // country, falling back to an exact name match. null = RA doesn't cover it.
 async function resolveRaArea(stop) {
   const key = norm(stop.city) + "|" + (stop.country || "").toUpperCase();
+  if (key in RA_AREA_SEED) return RA_AREA_SEED[key];
   if (areaMemo.has(key)) return areaMemo.get(key);
   const stored = loadAreaCache();
   if (key in stored) {
@@ -226,7 +240,9 @@ const RA_EVENTS_QUERY = `query($filters: FilterInputDtoInput, $page: Int, $pageS
 }`;
 
 const RA_PAGE = 20;
-const RA_MAX_PAGES = 6;
+// big cities list ~300-400 events/week (Berlin 316, London 383 when probed),
+// so the cap needs headroom or matched artists late in a stay get cut off
+const RA_MAX_PAGES = 15;
 
 async function fetchResidentAdvisor(stop) {
   const areaId = await resolveRaArea(stop);
