@@ -42,6 +42,7 @@ const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, 
 
 export default function GlobeView({ stops, selectedId, onSelect, onBackgroundClick }) {
   const globeRef = useRef();
+  const markerPressAt = useRef(0);
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
 
   useEffect(() => {
@@ -88,6 +89,14 @@ export default function GlobeView({ stops, selectedId, onSelect, onBackgroundCli
     g.pointOfView({ lat: 30, lng: -5, altitude: 2.05 }, 0);
   }, []);
 
+  // The globe raycasts through the HTML markers, so pressing a marker also
+  // produces a globe click one frame after pointerup — ignore it so it can't
+  // clobber the selection and restart the idle spin.
+  const handleGlobeClick = useCallback(() => {
+    if (Date.now() - markerPressAt.current < 300) return;
+    onBackgroundClick();
+  }, [onBackgroundClick]);
+
   const makeMarker = useCallback(
     (d) => {
       const el = document.createElement("div");
@@ -99,11 +108,18 @@ export default function GlobeView({ stops, selectedId, onSelect, onBackgroundCli
         esc(d.city) +
         "</div>";
       el.style.pointerEvents = "auto";
-      el.onclick = (e) => {
-        e.stopPropagation();
+      // Select on pointerdown: the globe library synthesizes its own click on
+      // pointerup (capture phase + next animation frame), which a click
+      // handler's stopPropagation can't intercept.
+      el.onpointerdown = () => {
+        markerPressAt.current = Date.now();
         sound.blip();
         onSelect(d.id);
       };
+      el.onpointerup = () => {
+        markerPressAt.current = Date.now();
+      };
+      el.onclick = (e) => e.stopPropagation();
       el.onmouseenter = () => sound.tick();
       return el;
     },
@@ -143,7 +159,7 @@ export default function GlobeView({ stops, selectedId, onSelect, onBackgroundCli
       htmlElement={makeMarker}
       htmlAltitude={0.014}
       onGlobeReady={onReady}
-      onGlobeClick={onBackgroundClick}
+      onGlobeClick={handleGlobeClick}
     />
   );
 }
