@@ -13,7 +13,9 @@ import { geohash, distanceKm } from "./geo.js";
 const LS_TM_KEY = "lmm.tm.key";
 const LS_RA_AREAS = "lmm.ra.areas.v1";
 const RA_PROXY = "/api/ra";
-const BIT_APP_ID = "live_music_map";
+// Bandsintown allowlists app_ids (arbitrary ones get 403); js_widget is the
+// public id its own embeddable widget uses in browsers.
+const BIT_APP_ID = "js_widget";
 const BIT_MAX_ARTISTS = 30;
 const NEARBY_KM = 80; // venue can be this far from the stop's coordinates
 

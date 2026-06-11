@@ -10,69 +10,56 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: RA areas search for European cities
+      - name: RA area ids for more European cities
         run: |
           set +e
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-          for city in berlin london paris amsterdam barcelona lisbon prague copenhagen; do
-            echo "::group::areas: $city"
+          for city in madrid rome milan vienna brussels dublin manchester glasgow stockholm oslo helsinki warsaw budapest athens istanbul zurich munich hamburg cologne frankfurt porto tbilisi; do
             BODY=$(jq -n --arg c "$city" '{query:"query($searchTerm: String!) { areas(searchTerm: $searchTerm, limit: 8) { id name country { name } } }", variables:{searchTerm:$c}}')
-            curl -sS -m 25 -X POST https://ra.co/graphql \
-              -H 'Content-Type: application/json' \
-              -H "User-Agent: $UA" \
-              -H 'Referer: https://ra.co/events' \
-              -H 'Origin: https://ra.co' \
-              --data "$BODY" \
-              -w '\nHTTP %{http_code}\n' | head -c 2000
-            echo
-            echo "::endgroup::"
+            OUT=$(curl -sS -m 25 -X POST https://ra.co/graphql \
+              -H 'Content-Type: application/json' -H "User-Agent: $UA" -H 'Referer: https://ra.co/events' \
+              --data "$BODY")
+            echo "$city => $(echo "$OUT" | head -c 600)"
           done
           true
 
-      - name: RA eventListings for Berlin (exact app query)
+      - name: RA pagination page 2 (Berlin) + London totalResults
         run: |
           set +e
           UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-          Q='query($filters: FilterInputDtoInput, $page: Int, $pageSize: Int) { eventListings(filters: $filters, pageSize: $pageSize, page: $page) { data { id listingDate event { id title date startTime contentUrl venue { name } artists { name } } } totalResults } }'
-          AREAS=$(jq -n '{query:"query($searchTerm: String!) { areas(searchTerm: $searchTerm, limit: 8) { id name country { name } } }", variables:{searchTerm:"berlin"}}' | \
-            curl -sS -m 25 -X POST https://ra.co/graphql -H 'Content-Type: application/json' -H "User-Agent: $UA" -H 'Referer: https://ra.co/events' --data @-)
-          echo "areas response: $AREAS" | head -c 1000; echo
-          AREA=$(echo "$AREAS" | jq -r '.data.areas[] | select(.country.name=="Germany") | .id' 2>/dev/null | head -1)
-          echo "resolved Berlin area id: ${AREA:-NONE}"
-          [ -z "$AREA" ] && AREA=34 && echo "falling back to area 34"
+          Q='query($filters: FilterInputDtoInput, $page: Int, $pageSize: Int) { eventListings(filters: $filters, pageSize: $pageSize, page: $page) { data { id listingDate event { id title } } totalResults } }'
           GTE="$(date -u +%F)T00:00:00.000Z"
           LTE="$(date -u -d '+7 days' +%F)T23:59:59.999Z"
-          BODY=$(jq -n --arg q "$Q" --argjson a "$AREA" --arg gte "$GTE" --arg lte "$LTE" \
-            '{query:$q, variables:{filters:{areas:{eq:$a}, listingDate:{gte:$gte, lte:$lte}}, pageSize:20, page:1}}')
-          curl -sS -m 25 -X POST https://ra.co/graphql \
-            -H 'Content-Type: application/json' \
-            -H "User-Agent: $UA" \
-            -H 'Referer: https://ra.co/events' \
-            --data "$BODY" \
-            -w '\nHTTP %{http_code}\n' | head -c 4000
-          echo
+          for spec in "34 2 berlin-page2" "13 1 london-page1"; do
+            set -- $spec
+            BODY=$(jq -n --arg q "$Q" --argjson a "$1" --argjson p "$2" --arg gte "$GTE" --arg lte "$LTE" \
+              '{query:$q, variables:{filters:{areas:{eq:$a}, listingDate:{gte:$gte, lte:$lte}}, pageSize:20, page:$p}}')
+            OUT=$(curl -sS -m 25 -X POST https://ra.co/graphql \
+              -H 'Content-Type: application/json' -H "User-Agent: $UA" -H 'Referer: https://ra.co/events' \
+              --data "$BODY")
+            echo "$3: totalResults=$(echo "$OUT" | jq '.data.eventListings.totalResults' 2>/dev/null) rows=$(echo "$OUT" | jq '.data.eventListings.data | length' 2>/dev/null) firstTitle=$(echo "$OUT" | jq -r '.data.eventListings.data[0].event.title' 2>/dev/null)"
+          done
           true
 
-      - name: Bandsintown events + CORS headers
+      - name: Bandsintown with js_widget — CORS headers, venue shape, unknown artist
         run: |
           set +e
           FROM=$(date -u +%F)
           TO=$(date -u -d '+90 days' +%F)
-          for artist in 'Peggy%20Gou' 'Four%20Tet' 'Bicep'; do
-            echo "::group::bandsintown: $artist (app_id=live_music_map)"
-            curl -sS -m 25 -D /tmp/h -o /tmp/b \
-              "https://rest.bandsintown.com/artists/$artist/events?app_id=live_music_map&date=$FROM%2C$TO" \
-              -H 'Accept: application/json' \
-              -H 'Origin: https://example.netlify.app'
-            echo "--- response headers ---"; cat /tmp/h
-            echo "--- body (truncated) ---"; head -c 2000 /tmp/b; echo
-            echo "::endgroup::"
+          echo "=== Peggy Gou: full response headers (Origin set, like a browser) ==="
+          curl -sS -m 25 -D - -o /tmp/b \
+            "https://rest.bandsintown.com/artists/Peggy%20Gou/events?app_id=js_widget&date=$FROM%2C$TO" \
+            -H 'Accept: application/json' \
+            -H 'Origin: https://example.netlify.app'
+          echo "=== first event venue object + count ==="
+          jq '{count: length, first_venue: .[0].venue, first_offers: .[0].offers, first_lineup: .[0].lineup, first_title: .[0].title, first_datetime: .[0].datetime}' /tmp/b 2>/dev/null | head -c 1500
+          echo
+          for artist in 'Four%20Tet' 'Bicep' 'Overmono'; do
+            CNT=$(curl -sS -m 25 "https://rest.bandsintown.com/artists/$artist/events?app_id=js_widget&date=$FROM%2C$TO" | jq 'length' 2>/dev/null)
+            echo "$artist: $CNT events in next 90 days"
           done
-          echo "::group::bandsintown alternate app_ids (if enforcement applies)"
-          for id in js_widget squarespace 1f2e3d4c; do
-            CODE=$(curl -sS -m 25 -o /tmp/b2 -w '%{http_code}' \
-              "https://rest.bandsintown.com/artists/Peggy%20Gou/events?app_id=$id&date=$FROM%2C$TO" -H 'Accept: application/json')
-            echo "app_id=$id -> HTTP $CODE: $(head -c 300 /tmp/b2)"
-          done
-          echo "::endgroup::"
+          echo "=== unknown artist behaviour ==="
+          CODE=$(curl -sS -m 25 -o /tmp/u -w '%{http_code}' \
+            "https://rest.bandsintown.com/artists/zzzqxv987nonexistent/events?app_id=js_widget&date=$FROM%2C$TO")
+          echo "unknown artist -> HTTP $CODE: $(head -c 300 /tmp/u)"
           true
