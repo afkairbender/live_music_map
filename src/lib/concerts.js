@@ -387,6 +387,8 @@ const EVM_LOCAL_NAME = {
   geneva: "genf", milan: "milano", rome: "roma", florence: "firenze",
   naples: "napoli", turin: "torino", venice: "venezia", copenhagen: "koebenhavn",
   seville: "sevilla", nuremberg: "nuernberg", hanover: "hannover", genoa: "genova",
+  padua: "padova", mantua: "mantova", syracuse: "siracusa",
+  lucerne: "luzern", saragossa: "zaragoza",
 };
 
 function evmUrl(shop, params) {
