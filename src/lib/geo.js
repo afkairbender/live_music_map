@@ -66,7 +66,8 @@ export async function searchCities(query) {
   try {
     const res = await fetch(
       "https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name=" +
-        encodeURIComponent(query.trim())
+        encodeURIComponent(query.trim()),
+      { signal: AbortSignal.timeout(2500) }
     );
     if (res.ok) {
       const data = await res.json();

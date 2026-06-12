@@ -205,6 +205,7 @@ body {
   max-height: calc(100vh - 140px);
   display: flex;
   flex-direction: column;
+  overflow: visible; /* let the city autocomplete dropdown escape the card */
 }
 
 .stops {
@@ -394,7 +395,7 @@ input[type="date"] { font-size: 12.5px; padding: 8px 8px; }
 
 .search-results {
   position: absolute;
-  top: calc(100% + 6px);
+  bottom: calc(100% + 6px); /* open upward: the input sits at the panel's bottom edge */
   left: 0;
   right: 0;
   z-index: 20;
