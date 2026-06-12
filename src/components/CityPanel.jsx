@@ -13,7 +13,7 @@ const SRC_BADGE = {
   tm: ["TM", "Ticketmaster"],
 };
 
-function EventRow({ ev }) {
+function EventRow({ ev, saved, onToggleSave }) {
   const matched = ev.matches.length > 0;
   const title = matched ? ev.matches.join(" + ") : ev.name;
   const badge = SRC_BADGE[ev.source];
@@ -43,11 +43,28 @@ function EventRow({ ev }) {
           Tickets
         </a>
       )}
+      <button
+        className={"ev-save" + (saved ? " on" : "")}
+        aria-pressed={saved}
+        aria-label={saved ? `Remove ${title} from saved shows` : `Save ${title}`}
+        title={saved ? "Remove from saved" : "Save for later"}
+        onClick={() => { saved ? sound.zap() : sound.blip(); onToggleSave(); }}
+      >
+        {saved ? "♥" : "♡"}
+      </button>
     </li>
   );
 }
 
-export default function CityPanel({ stop, index, artists, usingSampleTaste, onClose }) {
+export default function CityPanel({
+  stop,
+  index,
+  artists,
+  usingSampleTaste,
+  savedIds,
+  onToggleSave,
+  onClose,
+}) {
   const [state, setState] = useState({ phase: "loading" });
   const [picked, setPicked] = useState(() => new Set());
 
@@ -164,7 +181,16 @@ export default function CityPanel({ stop, index, artists, usingSampleTaste, onCl
             <>
               <h3 className="sec">🎉 Your artists are playing</h3>
               {matched.length ? (
-                <ul className="events">{matched.map((ev) => <EventRow key={ev.id} ev={ev} />)}</ul>
+                <ul className="events">
+                  {matched.map((ev) => (
+                    <EventRow
+                      key={ev.id}
+                      ev={ev}
+                      saved={savedIds.has(ev.id)}
+                      onToggleSave={() => onToggleSave(ev, stop)}
+                    />
+                  ))}
+                </ul>
               ) : (
                 <p className="status">None of your artists this time — peek below!</p>
               )}
@@ -172,7 +198,16 @@ export default function CityPanel({ stop, index, artists, usingSampleTaste, onCl
               {rest.length > 0 && (
                 <>
                   <h3 className="sec">🎵 Also in town</h3>
-                  <ul className="events">{rest.map((ev) => <EventRow key={ev.id} ev={ev} />)}</ul>
+                  <ul className="events">
+                    {rest.map((ev) => (
+                      <EventRow
+                        key={ev.id}
+                        ev={ev}
+                        saved={savedIds.has(ev.id)}
+                        onToggleSave={() => onToggleSave(ev, stop)}
+                      />
+                    ))}
+                  </ul>
                 </>
               )}
             </>
