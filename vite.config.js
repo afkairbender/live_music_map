@@ -4,7 +4,31 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   build: {
-    chunkSizeWarningLimit: 1600,
+    rollupOptions: {
+      output: {
+        // Split the heavyweight vendors into stable, independently cacheable
+        // chunks — app-code edits no longer invalidate the ~2 MB of three.js
+        // and globe machinery. The globe match is deliberately broad (all of
+        // globe.gl's viz deps: kapsule, accessor-fn, d3-*, three-* helpers…)
+        // so none of them land in the entry chunk and create an
+        // entry <-> globe chunk-init cycle. Everything else falls through to
+        // Rollup's default chunking.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("node_modules/three/")) return "three";
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return "react";
+          if (
+            /node_modules\/(react-globe\.gl|globe\.gl|three-[\w-]+|react-kapsule|kapsule|accessor-fn|data-bind-mapper|float-tooltip|frame-ticker|index-array-by|jerrypick|simplesignal|polished|tinycolor2|d3-[\w-]+|internmap|delaunator|robust-predicates|earcut|h3-js|point-in-polygon-hao|@turf|@tweenjs|lodash-es|preact|tslib|topojson-client)\//.test(id)
+          ) {
+            return "globe";
+          }
+        },
+      },
+    },
+    // real chunk sizes: three ~1,279 kB (core + the examples/jsm modules the
+    // globe stack imports), globe ~560 kB, entry ~147 kB, react ~143 kB —
+    // keep the limit just above the largest so regressions warn again
+    chunkSizeWarningLimit: 1300,
   },
   // bind to the IPv4 loopback: Spotify only allows 127.0.0.1 redirect URIs,
   // and on newer Node "localhost" binds IPv6-only so 127.0.0.1 won't connect

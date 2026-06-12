@@ -14,7 +14,7 @@ arcs connecting the route.
 - **Concerts per stop** — click Barcelona and see what's actually on during
   your dates, your artists first
 - **Real listings, zero keys** — every show comes from a live source:
-  Resident Advisor (clubs & electronic) and Bandsintown (tour dates) work
+  Resident Advisor, the Eventim network, DICE, GoOut and Bandsintown all work
   with no setup, Ticketmaster adds arena coverage with a free key. There is
   no fake/demo feed — if nothing's listed, you see nothing.
 - **Fun bits** — soft marimba pops on interaction (toggle with 🔊), pulsing
@@ -43,27 +43,39 @@ allows loopback-IP redirect URIs for new apps).
 3. Copy the **Client ID** into the **🔑 API keys** modal (or set
    `VITE_SPOTIFY_CLIENT_ID` in a `.env` file) and hit **Connect Spotify**.
 
-## Concert data — all real, merged from three sources
+## Concert data — all real, merged from six sources
 
 | Source | What it covers | Key needed |
 | --- | --- | --- |
 | [Resident Advisor](https://ra.co) | Club nights, festivals, electronic music worldwide | none |
+| [Eventim network](https://www.eventim.de) | Europe's biggest ticketer group — eventim.de, oeticket.at, ticketcorner.ch, eventim.fr, entradas.com, ticketone.it, billetlugen.dk, eventim.co.uk | none |
+| [DICE](https://dice.fm) | Club & gig coverage | none |
+| [GoOut](https://goout.net) | Czech/Slovak scene | none |
 | [Bandsintown](https://bandsintown.com) | Tour dates for *your* top artists, every genre | none |
 | [Ticketmaster Discovery](https://developer.ticketmaster.com/) | Arena/stadium & mainstream shows | free key (optional) |
 
 Results are fetched in parallel, deduped (same show on two sources keeps one
-entry), and tagged with a small RA / BIT / TM badge. Each stop queries RA by
-city area and Bandsintown by your top artists, filtered to venues within
-~80 km of the stop during your dates.
+entry), and tagged with a small RA / EVM / DICE / GO / BIT / TM badge. Each
+stop queries the city sources by area/coordinates and Bandsintown by your top
+artists, filtered to venues within ~80 km of the stop during your dates.
 
-Resident Advisor's GraphQL API doesn't send CORS headers, so the app calls
-it through a same-origin `/api/ra` route: the Vite dev server proxies it
-locally (`vite.config.js`) and Netlify rewrites it in production
-(`netlify.toml`). Bandsintown is called directly, with `/api/bit` as a
-fallback route. If you host the static build somewhere other than Netlify,
-add equivalent rewrites (`/api/ra` → `https://ra.co/graphql`, `/api/bit/*` →
-`https://rest.bandsintown.com/*`) — without them RA is skipped and the
-other sources still work.
+Several sources can't be called cross-origin from the browser (RA and GoOut
+send no CORS headers, DICE allowlists its own origins), so the app calls them
+through same-origin routes: `/api/ra`, `/api/dice`, `/api/goout`, plus
+`/api/bit` as a fallback when a direct Bandsintown call is blocked. The Vite
+dev server proxies them locally (`vite.config.js`) and Netlify rewrites them
+in production (`netlify.toml`). If you host the static build somewhere other
+than Netlify, add equivalent rewrites:
+
+- `/api/ra` → `https://ra.co/graphql`
+- `/api/dice` → `https://api.dice.fm/unified_search`
+- `/api/goout` → `https://goout.net/services/entities/v1/schedules`
+- `/api/bit/*` → `https://rest.bandsintown.com/:splat`
+
+Without them those sources are skipped and the rest still work. Eventim has
+no proxy route and needs none — it works everywhere because the app calls it
+browser-direct, and it must be: Akamai rejects non-browser TLS fingerprints,
+so proxying it gets a 403.
 
 To add Ticketmaster, paste a free Discovery API key into the **🔑 API keys**
 modal (or set `VITE_TM_API_KEY`).
@@ -81,7 +93,8 @@ redirect URI in the Spotify dashboard.
 | Drag / scroll | Spin / zoom the globe |
 | Click a stop (globe or list) | Fly there + show concerts during your stay |
 | `ESC` or click empty space | Close the city panel |
-| "Where to next?" | Search any city (local list + Open-Meteo geocoder) |
+| "Where to next?" | Search any city (local list + Open-Meteo geocoder, arrow keys + Enter work) |
+| ✎ / ↑ ↓ on a stop | Edit its dates / reorder the trip |
 | 🔊 | Toggle the sound effects |
 | 🔑 API keys | Set Spotify client ID / Ticketmaster key |
 

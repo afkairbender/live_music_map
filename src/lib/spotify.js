@@ -107,16 +107,25 @@ export function disconnect() {
   localStorage.removeItem(LS.token);
 }
 
+// Spotify rotates refresh tokens on every use, so concurrent refreshes (e.g.
+// fetchMe + fetchTopArtists racing on app load) would replay an already-
+// consumed token and get rejected, killing the session. All callers share one
+// in-flight refresh; cleared on settle so a later retry can refresh again.
+let refreshInFlight = null;
+
 async function accessToken() {
   let t = readToken();
   if (!t) throw new Error("not connected");
   if (t.exp <= Date.now()) {
     if (!t.refresh) throw new Error("session expired");
-    t = await tokenRequest({
+    refreshInFlight ??= tokenRequest({
       grant_type: "refresh_token",
       refresh_token: t.refresh,
       client_id: getClientId(),
-    });
+    }).finally(() => (refreshInFlight = null));
+    await refreshInFlight;
+    t = readToken(); // re-read: another caller may have refreshed while we awaited
+    if (!t || t.exp <= Date.now()) throw new Error("session expired");
   }
   return t.access;
 }
