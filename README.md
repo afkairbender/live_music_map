@@ -17,11 +17,14 @@ arcs connecting the route.
   Resident Advisor, the Eventim network, DICE, GoOut and Bandsintown all work
   with no setup, Ticketmaster adds arena coverage with a free key. There is
   no fake/demo feed — if nothing's listed, you see nothing.
+- **Saved shows** — tap the ♡ on any listing to keep it; the ❤️ Saved panel
+  collects your picks across every stop, split into coming up / already
+  happened, and survives reloads even after a show drops off its feed.
 - **Fun bits** — soft marimba pops on interaction (toggle with 🔊), pulsing
   rings, country flags, km counter
 
-Everything is client-side. No backend, no database, no login. Keys and your
-itinerary live in `localStorage`.
+Everything is client-side. No backend, no database, no login. Keys, your
+itinerary and your saved shows live in `localStorage`.
 
 ## Run it
 
@@ -95,6 +98,7 @@ redirect URI in the Spotify dashboard.
 | `ESC` or click empty space | Close the city panel |
 | "Where to next?" | Search any city (local list + Open-Meteo geocoder, arrow keys + Enter work) |
 | ✎ / ↑ ↓ on a stop | Edit its dates / reorder the trip |
+| ♡ on a show / ❤️ Saved | Save it for later / open your saved-shows list |
 | 🔊 | Toggle the sound effects |
 | 🔑 API keys | Set Spotify client ID / Ticketmaster key |
 

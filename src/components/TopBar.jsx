@@ -1,6 +1,16 @@
 import * as sound from "../lib/sound.js";
 
-export default function TopBar({ spotify, onConnect, onDisconnect, onKeys, muted, onToggleMute }) {
+export default function TopBar({
+  spotify,
+  onConnect,
+  onDisconnect,
+  onKeys,
+  muted,
+  onToggleMute,
+  savedCount,
+  savedOpen,
+  onToggleSaved,
+}) {
   return (
     <header className="topbar">
       <h1 className="logo">
@@ -15,6 +25,15 @@ export default function TopBar({ spotify, onConnect, onDisconnect, onKeys, muted
           onClick={onToggleMute}
         >
           {muted ? "🔇" : "🔊"}
+        </button>
+        <button
+          className="btn ghost"
+          aria-label="Saved shows"
+          aria-pressed={savedOpen}
+          onClick={() => { sound.tick(); onToggleSaved(); }}
+        >
+          ❤️<span className="keys-label"> Saved</span>
+          {savedCount > 0 && <span className="saved-count">{savedCount}</span>}
         </button>
         {/* label text collapses to just 🔑 on small screens (CSS hides the
             span), so the accessible name lives in aria-label instead */}

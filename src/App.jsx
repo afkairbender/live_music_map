@@ -2,17 +2,21 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import GlobeView from "./components/GlobeView.jsx";
 import ItineraryPanel from "./components/ItineraryPanel.jsx";
 import CityPanel from "./components/CityPanel.jsx";
+import SavedPanel from "./components/SavedPanel.jsx";
 import TopBar from "./components/TopBar.jsx";
 import KeysModal from "./components/KeysModal.jsx";
 import * as spotify from "./lib/spotify.js";
 import { SAMPLE_ARTISTS } from "./lib/concerts.js";
 import { distanceKm } from "./lib/geo.js";
 import { loadItinerary, saveItinerary, newId } from "./lib/itinerary.js";
+import { loadSavedEvents, saveSavedEvents, toggleSavedEvent } from "./lib/saved.js";
 import * as sound from "./lib/sound.js";
 
 export default function App() {
   const [stops, setStops] = useState(loadItinerary);
   const [selectedId, setSelectedId] = useState(null);
+  const [saved, setSaved] = useState(loadSavedEvents);
+  const [savedOpen, setSavedOpen] = useState(false);
   const [sp, setSp] = useState({
     phase: spotify.isConnected() ? "loading" : "idle",
     profile: null,
@@ -23,6 +27,7 @@ export default function App() {
   const [muted, setMuted] = useState(sound.isMuted());
 
   useEffect(() => saveItinerary(stops), [stops]);
+  useEffect(() => saveSavedEvents(saved), [saved]);
 
   // Bouncing back to "Connect Spotify" after a failed round-trip looked like
   // nothing happened — keep the failure in state so TopBar can own up to it.
@@ -82,22 +87,45 @@ export default function App() {
   );
 
   // Escape peels only the topmost layer: the keys modal (a cancel, same as a
-  // backdrop click) sits above the city panel. The search dropdown is layered
-  // in between, but it lives in ItineraryPanel state — it swallows its own
-  // Escape via stopPropagation before this window-level listener sees it.
+  // backdrop click) sits above the saved/city panels, which share the
+  // right-hand slot. The search dropdown is layered in between, but it lives
+  // in ItineraryPanel state — it swallows its own Escape via stopPropagation
+  // before this window-level listener sees it.
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== "Escape") return;
       if (keysOpen) closeKeys(null);
+      else if (savedOpen) setSavedOpen(false);
       else setSelectedId(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [keysOpen, closeKeys]);
+  }, [keysOpen, savedOpen, closeKeys]);
+
+  // the saved panel and the city panel occupy the same right-hand slot, so
+  // opening either one closes the other
+  const selectStop = useCallback((id) => {
+    if (id != null) setSavedOpen(false);
+    setSelectedId(id);
+  }, []);
+
+  const toggleSavedPanel = () => {
+    if (!savedOpen) setSelectedId(null);
+    setSavedOpen(!savedOpen);
+  };
+
+  const toggleSave = useCallback((ev, stop) => {
+    setSaved((prev) => toggleSavedEvent(prev, ev, stop));
+  }, []);
+
+  const unsave = useCallback((id) => {
+    setSaved((prev) => prev.filter((e) => e.id !== id));
+  }, []);
 
   const addStop = useCallback((stop) => {
     const s = { ...stop, id: newId() };
     setStops((prev) => [...prev, s]);
+    setSavedOpen(false);
     setSelectedId(s.id);
   }, []);
 
@@ -136,12 +164,14 @@ export default function App() {
 
   const artists = sp.phase === "connected" ? sp.artists : SAMPLE_ARTISTS;
 
+  const savedIds = useMemo(() => new Set(saved.map((e) => e.id)), [saved]);
+
   return (
     <div className="app">
       <GlobeView
         stops={stops}
         selectedId={selectedId}
-        onSelect={setSelectedId}
+        onSelect={selectStop}
         onBackgroundClick={() => setSelectedId(null)}
       />
 
@@ -152,12 +182,15 @@ export default function App() {
         onKeys={() => setKeysOpen(true)}
         muted={muted}
         onToggleMute={() => setMuted(sound.toggleMute())}
+        savedCount={saved.length}
+        savedOpen={savedOpen}
+        onToggleSaved={toggleSavedPanel}
       />
 
       <ItineraryPanel
         stops={stops}
         selectedId={selectedId}
-        onSelect={setSelectedId}
+        onSelect={selectStop}
         onRemove={removeStop}
         onAdd={addStop}
         onUpdate={updateStop}
@@ -171,8 +204,14 @@ export default function App() {
           index={selectedIdx}
           artists={artists}
           usingSampleTaste={sp.phase !== "connected"}
+          savedIds={savedIds}
+          onToggleSave={toggleSave}
           onClose={() => setSelectedId(null)}
         />
+      )}
+
+      {savedOpen && (
+        <SavedPanel events={saved} onRemove={unsave} onClose={() => setSavedOpen(false)} />
       )}
 
       <p className="hint">Drag to spin · scroll to zoom · click a stop for shows</p>

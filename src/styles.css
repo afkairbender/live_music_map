@@ -149,6 +149,22 @@ body {
 
 .btn.spotify.err:hover { box-shadow: 0 3px 12px rgba(255, 56, 92, 0.25); }
 
+/* count pill inside the ❤️ Saved button */
+.saved-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 7px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+
 .pulse-dot {
   width: 9px;
   height: 9px;
@@ -588,6 +604,36 @@ input[type="date"] { font-size: 12.5px; padding: 8px 8px; }
 }
 
 .ev-link:hover { background: var(--coral); color: #fff; }
+
+/* save-for-later heart — quiet gray until it's yours */
+.ev-save {
+  flex-shrink: 0;
+  background: none;
+  border: 0;
+  color: #c0c0c0;
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ev-save:hover { background: var(--coral-soft); color: var(--coral); }
+
+.ev-save.on { color: var(--coral); animation: heart-pop 0.25s ease; }
+
+/* in the saved panel the heart is a remove button that mounts already-on —
+   popping every row on open would be noise, not feedback */
+.saved .ev-save.on { animation: none; }
+
+@keyframes heart-pop {
+  0% { transform: scale(0.5); }
+  60% { transform: scale(1.35); }
+  100% { transform: none; }
+}
 
 .status {
   padding: 12px 18px;
