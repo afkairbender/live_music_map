@@ -311,7 +311,6 @@ li.sel .stop-num { background: var(--teal); box-shadow: 0 2px 6px rgba(0, 166, 1
   flex-shrink: 0;
 }
 
-.stop-move,
 .stop-edit {
   background: none;
   border: 0;
@@ -323,36 +322,13 @@ li.sel .stop-num { background: var(--teal); box-shadow: 0 2px 6px rgba(0, 166, 1
   transition: background 0.12s, color 0.12s, opacity 0.12s;
 }
 
-/* reorder arrows tuck away until the row is hovered or focused so the list
-   reads clean; hover-less (touch) devices get them always-on below */
-.stop-move {
-  width: 20px;
-  height: 26px;
-  font-size: 12px;
-  opacity: 0;
-}
-
 .stop-edit {
   width: 26px;
   height: 26px;
   font-size: 13px;
 }
 
-.stops li:hover .stop-move,
-.stops li:focus-within .stop-move { opacity: 1; }
-
-.stop-move:disabled { cursor: default; }
-
-.stops li:hover .stop-move:disabled,
-.stops li:focus-within .stop-move:disabled { opacity: 0.3; }
-
-.stop-move:hover:not(:disabled),
 .stop-edit:hover { background: var(--coral-soft); color: var(--coral); }
-
-@media (hover: none) {
-  .stop-move { opacity: 1; }
-  .stop-move:disabled { opacity: 0.3; }
-}
 
 /* inline date editor — drops in under the row, mirrors the add-form's date row.
    The 300px panel is tight for two date fields + save/cancel, so the fields
@@ -822,9 +798,6 @@ input[type="date"] { font-size: 12.5px; padding: 8px 8px; }
   /* 🔑 keeps its meaning solo; the button's aria-label carries the name */
   .keys-label { display: none; }
 
-  /* reorder arrows are always visible where there's no hover to reveal them */
-  .stop-move { opacity: 1; }
-  .stop-move:disabled { opacity: 0.3; }
 }
 
 /* soft rounded scrollbars */

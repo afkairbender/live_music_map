@@ -122,9 +122,11 @@ export default function App() {
     setSaved((prev) => prev.filter((e) => e.id !== id));
   }, []);
 
+  const sortByDate = (arr) => [...arr].sort((a, b) => a.arrive.localeCompare(b.arrive));
+
   const addStop = useCallback((stop) => {
     const s = { ...stop, id: newId() };
-    setStops((prev) => [...prev, s]);
+    setStops((prev) => sortByDate([...prev, s]));
     setSavedOpen(false);
     setSelectedId(s.id);
   }, []);
@@ -135,21 +137,9 @@ export default function App() {
   }, []);
 
   const updateStop = useCallback((id, patch) => {
-    setStops((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    setStops((prev) => sortByDate(prev.map((s) => (s.id === id ? { ...s, ...patch } : s))));
   }, []);
 
-  // dir is ±1; arcs, numbering and the km counter all derive from stops order,
-  // so a swap is the whole job
-  const moveStop = useCallback((id, dir) => {
-    setStops((prev) => {
-      const i = prev.findIndex((s) => s.id === id);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= prev.length) return prev;
-      const next = [...prev];
-      [next[i], next[j]] = [next[j], next[i]];
-      return next;
-    });
-  }, []);
 
   const selectedIdx = stops.findIndex((s) => s.id === selectedId);
   const selected = selectedIdx >= 0 ? stops[selectedIdx] : null;
@@ -194,7 +184,7 @@ export default function App() {
         onRemove={removeStop}
         onAdd={addStop}
         onUpdate={updateStop}
-        onMove={moveStop}
+
       />
 
       {selected && (

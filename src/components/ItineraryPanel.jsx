@@ -10,7 +10,6 @@ export default function ItineraryPanel({
   onRemove,
   onAdd,
   onUpdate,
-  onMove,
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -132,24 +131,6 @@ export default function ItineraryPanel({
               </span>
             </button>
             <span className="stop-tools">
-              <button
-                className="stop-move"
-                aria-label={`Move ${s.city} earlier`}
-                title="Move earlier"
-                disabled={i === 0}
-                onClick={() => { sound.tick(); onMove(s.id, -1); }}
-              >
-                ↑
-              </button>
-              <button
-                className="stop-move"
-                aria-label={`Move ${s.city} later`}
-                title="Move later"
-                disabled={i === stops.length - 1}
-                onClick={() => { sound.tick(); onMove(s.id, 1); }}
-              >
-                ↓
-              </button>
               <button
                 className="stop-edit"
                 aria-label={`Edit dates for ${s.city}`}
